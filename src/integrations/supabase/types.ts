@@ -14,7 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      keuangan: {
+        Row: {
+          created_at: string
+          id: string
+          jenis: string
+          keterangan: string
+          nama_kegiatan: string
+          nominal: number
+          waktu: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          jenis: string
+          keterangan?: string
+          nama_kegiatan: string
+          nominal?: number
+          waktu: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          jenis?: string
+          keterangan?: string
+          nama_kegiatan?: string
+          nominal?: number
+          waktu?: string
+        }
+        Relationships: []
+      }
+      program_kerja: {
+        Row: {
+          bidang: string
+          created_at: string
+          id: string
+          kendala: string
+          nama: string
+          realisasi: string
+          solusi: string
+          tempat: string
+          tujuan: string
+          waktu_pelaksanaan: string
+        }
+        Insert: {
+          bidang: string
+          created_at?: string
+          id?: string
+          kendala?: string
+          nama: string
+          realisasi?: string
+          solusi?: string
+          tempat?: string
+          tujuan?: string
+          waktu_pelaksanaan: string
+        }
+        Update: {
+          bidang?: string
+          created_at?: string
+          id?: string
+          kendala?: string
+          nama?: string
+          realisasi?: string
+          solusi?: string
+          tempat?: string
+          tujuan?: string
+          waktu_pelaksanaan?: string
+        }
+        Relationships: []
+      }
+      surat: {
+        Row: {
+          created_at: string
+          file_pdf: string | null
+          id: string
+          jenis: string
+          keterangan: string
+          nama: string
+          nomor: string
+          penerima: string
+          pengirim: string
+          waktu: string
+        }
+        Insert: {
+          created_at?: string
+          file_pdf?: string | null
+          id?: string
+          jenis: string
+          keterangan?: string
+          nama: string
+          nomor: string
+          penerima: string
+          pengirim: string
+          waktu: string
+        }
+        Update: {
+          created_at?: string
+          file_pdf?: string | null
+          id?: string
+          jenis?: string
+          keterangan?: string
+          nama?: string
+          nomor?: string
+          penerima?: string
+          pengirim?: string
+          waktu?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
