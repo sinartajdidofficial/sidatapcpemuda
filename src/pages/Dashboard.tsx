@@ -2,7 +2,10 @@ import { Mail, MailOpen, Wallet, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/AppLayout';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { Surat, Keuangan, ProgramKerja } from '@/types';
+import type { Surat, Keuangan, ProgramKerja, BidangGarapan } from '@/types';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 
 const statVariant = {
   hidden: { opacity: 0, y: 20 },
@@ -30,6 +33,18 @@ export default function Dashboard() {
   const saldo = totalMasuk - totalKeluar;
 
   const prokerTerlaksana = prokerList.filter((p) => p.realisasi === 'Terlaksana').length;
+
+  const bidangList: BidangGarapan[] = [
+    'Pendidikan', 'Dakwah', 'Kaderisasi', "Jam'iyyah",
+    'Infokom', 'Ekonomi Sosial', 'Seni & Olahraga', 'HLO',
+  ];
+
+  const prokerByBidang = bidangList
+    .map((bidang) => ({
+      bidang,
+      items: prokerList.filter((p) => p.bidang === bidang),
+    }))
+    .filter((g) => g.items.length > 0);
 
   const stats = [
     {
@@ -106,25 +121,63 @@ export default function Dashboard() {
           Realisasi Program Kerja
         </h2>
         <div className="stat-card">
-          {prokerList.length === 0 ? (
+          {prokerByBidang.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Belum ada program kerja</p>
           ) : (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Terlaksana</span>
-                <span className="font-semibold text-success">{prokerTerlaksana}</span>
+            <>
+              <div className="flex justify-between text-sm mb-3">
+                <span className="text-muted-foreground">Total Terlaksana</span>
+                <span className="font-semibold">{prokerTerlaksana}/{prokerList.length}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Belum Terlaksana</span>
-                <span className="font-semibold text-warning">{prokerList.length - prokerTerlaksana}</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2.5 mt-2">
+              <div className="w-full bg-muted rounded-full h-2.5 mb-4">
                 <div
                   className="bg-primary h-2.5 rounded-full transition-all"
                   style={{ width: `${prokerList.length > 0 ? (prokerTerlaksana / prokerList.length) * 100 : 0}%` }}
                 />
               </div>
-            </div>
+              <Accordion type="multiple" className="w-full">
+                {prokerByBidang.map((group) => (
+                  <AccordionItem key={group.bidang} value={group.bidang}>
+                    <AccordionTrigger className="text-sm py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{group.bidang}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {group.items.filter(p => p.realisasi === 'Terlaksana').length}/{group.items.length}
+                        </Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="overflow-auto -mx-1">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs px-2">No</TableHead>
+                              <TableHead className="text-xs px-2">Program</TableHead>
+                              <TableHead className="text-xs px-2">Waktu</TableHead>
+                              <TableHead className="text-xs px-2">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {group.items.map((p, idx) => (
+                              <TableRow key={p.id}>
+                                <TableCell className="text-xs px-2 py-1.5">{idx + 1}</TableCell>
+                                <TableCell className="text-xs px-2 py-1.5 font-medium">{p.nama}</TableCell>
+                                <TableCell className="text-xs px-2 py-1.5">{p.waktuPelaksanaan}</TableCell>
+                                <TableCell className="text-xs px-2 py-1.5">
+                                  <Badge variant={p.realisasi === 'Terlaksana' ? 'default' : 'outline'} className="text-[10px]">
+                                    {p.realisasi}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </>
           )}
         </div>
       </div>
