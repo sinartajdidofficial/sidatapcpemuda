@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit, UserCheck, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit, UserCheck, Loader2, ArrowLeft, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,10 +12,22 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 const bidangOptions: BidangGarapan[] = [
   'Pendidikan', 'Dakwah', 'Kaderisasi', "Jam'iyyah", 'Infokom', 'Ekonomi Sosial', 'Seni & Olahraga', 'HLO',
 ];
+
+const bidangColors: Record<string, string> = {
+  'Pendidikan': 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300',
+  'Dakwah': 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
+  'Kaderisasi': 'bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300',
+  "Jam'iyyah": 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300',
+  'Infokom': 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
+  'Ekonomi Sosial': 'bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-300',
+  'Seni & Olahraga': 'bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-300',
+  'HLO': 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300',
+};
 
 interface Form {
   nama: string; bidang: BidangGarapan; tempat_lahir: string; tanggal_lahir: string;
@@ -66,6 +78,11 @@ export default function PengurusPage() {
   }
   function handleSave() { if (!form.nama) return; saveMutation.mutate(); }
 
+  // Group by bidang for org chart
+  const grouped = bidangOptions
+    .map((bidang) => ({ bidang, members: list.filter((p) => p.bidang === bidang) }))
+    .filter((g) => g.members.length > 0);
+
   return (
     <AppLayout title="Data Pengurus">
       <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4 hover:text-foreground">
@@ -79,22 +96,66 @@ export default function PengurusPage() {
           <UserCheck size={48} className="mx-auto mb-3 opacity-30" />Belum ada data pengurus
         </div>
       ) : (
-        <div className="space-y-3">
-          {list.map((item) => (
-            <div key={item.id} className="stat-card">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{item.nama}</p>
-                  <Badge variant="secondary" className="text-[10px] mt-1">{item.bidang}</Badge>
-                  <p className="text-xs text-muted-foreground mt-1">{item.tempat_lahir}{item.tanggal_lahir ? `, ${item.tanggal_lahir}` : ''}</p>
-                  {item.no_whatsapp && <p className="text-xs text-muted-foreground">WA: {item.no_whatsapp}</p>}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
-                </div>
+        <div className="space-y-6">
+          {/* Summary */}
+          <div className="stat-card text-center">
+            <p className="text-xs text-muted-foreground">Total Pengurus</p>
+            <p className="text-2xl font-bold">{list.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">{grouped.length} Bidang Garapan</p>
+          </div>
+
+          {/* Org Chart */}
+          {grouped.map((group, gi) => (
+            <motion.div
+              key={group.bidang}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: gi * 0.08 }}
+            >
+              {/* Bidang Header */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`h-3 w-3 rounded-full ${bidangColors[group.bidang]?.split(' ')[0] || 'bg-primary'}`} />
+                <h3 className="text-sm font-bold">{group.bidang}</h3>
+                <Badge variant="secondary" className="text-[10px]">{group.members.length}</Badge>
               </div>
-            </div>
+
+              {/* Connector line */}
+              <div className="relative ml-1.5 border-l-2 border-border pl-5 space-y-3 pb-2">
+                {group.members.map((item, idx) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: gi * 0.08 + idx * 0.05 }}
+                    className={`relative rounded-xl border p-3 ${bidangColors[group.bidang] || 'border-border'}`}
+                  >
+                    {/* Horizontal connector */}
+                    <div className="absolute -left-5 top-5 w-5 border-t-2 border-border" />
+
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{item.nama}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {item.tempat_lahir}{item.tanggal_lahir ? `, ${item.tanggal_lahir}` : ''}
+                        </p>
+                        {item.pendidikan_terakhir && (
+                          <p className="text-[11px] text-muted-foreground">📚 {item.pendidikan_terakhir}</p>
+                        )}
+                        {item.no_whatsapp && (
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Phone size={10} /> {item.no_whatsapp}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Edit size={13} /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={13} /></Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
           ))}
         </div>
       )}
