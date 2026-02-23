@@ -7,6 +7,10 @@ import Dashboard from "./pages/Dashboard";
 import SuratPage from "./pages/SuratPage";
 import KeuanganPage from "./pages/KeuanganPage";
 import ProkerPage from "./pages/ProkerPage";
+import DataPCPage from "./pages/DataPCPage";
+import PengurusPage from "./pages/PengurusPage";
+import AnggotaPage from "./pages/AnggotaPage";
+import PJPage from "./pages/PJPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +26,10 @@ const App = () => (
           <Route path="/surat" element={<SuratPage />} />
           <Route path="/keuangan" element={<KeuanganPage />} />
           <Route path="/proker" element={<ProkerPage />} />
+          <Route path="/data-pc" element={<DataPCPage />} />
+          <Route path="/data-pc/pengurus" element={<PengurusPage />} />
+          <Route path="/data-pc/anggota" element={<AnggotaPage />} />
+          <Route path="/data-pc/pj" element={<PJPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
