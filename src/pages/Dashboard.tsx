@@ -1,8 +1,9 @@
-import { Mail, MailOpen, Wallet, CheckCircle } from 'lucide-react';
+import { Mail, MailOpen, Wallet, CheckCircle, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/AppLayout';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { Surat, Keuangan, ProgramKerja, BidangGarapan } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import type { BidangGarapan } from '@/types';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
@@ -10,84 +11,82 @@ import { Badge } from '@/components/ui/badge';
 const statVariant = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.3 },
+    opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.3 },
   }),
 };
 
+const bidangList: BidangGarapan[] = [
+  'Pendidikan', 'Dakwah', 'Kaderisasi', "Jam'iyyah",
+  'Infokom', 'Ekonomi Sosial', 'Seni & Olahraga', 'HLO',
+];
+
 export default function Dashboard() {
-  const [suratList] = useLocalStorage<Surat[]>('surat', []);
-  const [keuanganList] = useLocalStorage<Keuangan[]>('keuangan', []);
-  const [prokerList] = useLocalStorage<ProgramKerja[]>('proker', []);
+  const { data: suratList = [], isLoading: loadingSurat } = useQuery({
+    queryKey: ['surat'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('surat').select('id, jenis');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: keuanganList = [], isLoading: loadingKeuangan } = useQuery({
+    queryKey: ['keuangan'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('keuangan').select('id, jenis, nominal');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: prokerList = [], isLoading: loadingProker } = useQuery({
+    queryKey: ['program_kerja'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('program_kerja').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data.map((r) => ({
+        id: r.id, nama: r.nama, bidang: r.bidang as BidangGarapan,
+        waktuPelaksanaan: r.waktu_pelaksanaan, realisasi: r.realisasi,
+      }));
+    },
+  });
+
+  const isLoading = loadingSurat || loadingKeuangan || loadingProker;
 
   const suratMasuk = suratList.filter((s) => s.jenis === 'masuk').length;
   const suratKeluar = suratList.filter((s) => s.jenis === 'keluar').length;
 
-  const totalMasuk = keuanganList
-    .filter((k) => k.jenis === 'masuk')
-    .reduce((s, k) => s + k.nominal, 0);
-  const totalKeluar = keuanganList
-    .filter((k) => k.jenis === 'keluar')
-    .reduce((s, k) => s + k.nominal, 0);
+  const totalMasuk = keuanganList.filter((k) => k.jenis === 'masuk').reduce((s, k) => s + Number(k.nominal), 0);
+  const totalKeluar = keuanganList.filter((k) => k.jenis === 'keluar').reduce((s, k) => s + Number(k.nominal), 0);
   const saldo = totalMasuk - totalKeluar;
 
   const prokerTerlaksana = prokerList.filter((p) => p.realisasi === 'Terlaksana').length;
 
-  const bidangList: BidangGarapan[] = [
-    'Pendidikan', 'Dakwah', 'Kaderisasi', "Jam'iyyah",
-    'Infokom', 'Ekonomi Sosial', 'Seni & Olahraga', 'HLO',
-  ];
-
   const prokerByBidang = bidangList
-    .map((bidang) => ({
-      bidang,
-      items: prokerList.filter((p) => p.bidang === bidang),
-    }))
+    .map((bidang) => ({ bidang, items: prokerList.filter((p) => p.bidang === bidang) }))
     .filter((g) => g.items.length > 0);
 
   const stats = [
-    {
-      label: 'Surat Masuk',
-      value: suratMasuk,
-      icon: MailOpen,
-      color: 'bg-info text-info-foreground',
-    },
-    {
-      label: 'Surat Keluar',
-      value: suratKeluar,
-      icon: Mail,
-      color: 'bg-warning text-warning-foreground',
-    },
-    {
-      label: 'Saldo Keuangan',
-      value: `Rp ${saldo.toLocaleString('id-ID')}`,
-      icon: Wallet,
-      color: 'bg-success text-success-foreground',
-    },
-    {
-      label: 'Proker Terlaksana',
-      value: `${prokerTerlaksana}/${prokerList.length}`,
-      icon: CheckCircle,
-      color: 'bg-primary text-primary-foreground',
-    },
+    { label: 'Surat Masuk', value: suratMasuk, icon: MailOpen, color: 'bg-info text-info-foreground' },
+    { label: 'Surat Keluar', value: suratKeluar, icon: Mail, color: 'bg-warning text-warning-foreground' },
+    { label: 'Saldo Keuangan', value: `Rp ${saldo.toLocaleString('id-ID')}`, icon: Wallet, color: 'bg-success text-success-foreground' },
+    { label: 'Proker Terlaksana', value: `${prokerTerlaksana}/${prokerList.length}`, icon: CheckCircle, color: 'bg-primary text-primary-foreground' },
   ];
+
+  if (isLoading) {
+    return (
+      <AppLayout title="Dashboard">
+        <div className="text-center py-16"><Loader2 className="mx-auto animate-spin text-muted-foreground" /></div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="Dashboard">
       <div className="grid grid-cols-2 gap-3">
         {stats.map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            className="stat-card flex flex-col gap-3"
-            custom={i}
-            initial="hidden"
-            animate="visible"
-            variants={statVariant}
-          >
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.color}`}>
-              <stat.icon size={20} />
-            </div>
+          <motion.div key={stat.label} className="stat-card flex flex-col gap-3" custom={i} initial="hidden" animate="visible" variants={statVariant}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.color}`}><stat.icon size={20} /></div>
             <div>
               <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
               <p className="text-xl font-bold">{stat.value}</p>
@@ -97,9 +96,7 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-6">
-        <h2 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wider">
-          Ringkasan Keuangan
-        </h2>
+        <h2 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wider">Ringkasan Keuangan</h2>
         <div className="stat-card space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Total Pemasukan</span>
@@ -117,9 +114,7 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-6">
-        <h2 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wider">
-          Realisasi Program Kerja
-        </h2>
+        <h2 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wider">Realisasi Program Kerja</h2>
         <div className="stat-card">
           {prokerByBidang.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Belum ada program kerja</p>
@@ -130,10 +125,7 @@ export default function Dashboard() {
                 <span className="font-semibold">{prokerTerlaksana}/{prokerList.length}</span>
               </div>
               <div className="w-full bg-muted rounded-full h-2.5 mb-4">
-                <div
-                  className="bg-primary h-2.5 rounded-full transition-all"
-                  style={{ width: `${prokerList.length > 0 ? (prokerTerlaksana / prokerList.length) * 100 : 0}%` }}
-                />
+                <div className="bg-primary h-2.5 rounded-full transition-all" style={{ width: `${prokerList.length > 0 ? (prokerTerlaksana / prokerList.length) * 100 : 0}%` }} />
               </div>
               <Accordion type="multiple" className="w-full">
                 {prokerByBidang.map((group) => (
@@ -141,9 +133,7 @@ export default function Dashboard() {
                     <AccordionTrigger className="text-sm py-2">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{group.bidang}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {group.items.filter(p => p.realisasi === 'Terlaksana').length}/{group.items.length}
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">{group.items.filter(p => p.realisasi === 'Terlaksana').length}/{group.items.length}</Badge>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -164,9 +154,7 @@ export default function Dashboard() {
                                 <TableCell className="text-xs px-2 py-1.5 font-medium">{p.nama}</TableCell>
                                 <TableCell className="text-xs px-2 py-1.5">{p.waktuPelaksanaan}</TableCell>
                                 <TableCell className="text-xs px-2 py-1.5">
-                                  <Badge variant={p.realisasi === 'Terlaksana' ? 'default' : 'outline'} className="text-[10px]">
-                                    {p.realisasi}
-                                  </Badge>
+                                  <Badge variant={p.realisasi === 'Terlaksana' ? 'default' : 'outline'} className="text-[10px]">{p.realisasi}</Badge>
                                 </TableCell>
                               </TableRow>
                             ))}
