@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      anggota: {
+        Row: {
+          alamat: string
+          created_at: string
+          id: string
+          nama: string
+          no_whatsapp: string
+          pendidikan_terakhir: string
+          tanggal_lahir: string
+          tempat_lahir: string
+        }
+        Insert: {
+          alamat?: string
+          created_at?: string
+          id?: string
+          nama: string
+          no_whatsapp?: string
+          pendidikan_terakhir?: string
+          tanggal_lahir?: string
+          tempat_lahir?: string
+        }
+        Update: {
+          alamat?: string
+          created_at?: string
+          id?: string
+          nama?: string
+          no_whatsapp?: string
+          pendidikan_terakhir?: string
+          tanggal_lahir?: string
+          tempat_lahir?: string
+        }
+        Relationships: []
+      }
       keuangan: {
         Row: {
           created_at: string
@@ -41,6 +74,78 @@ export type Database = {
           nama_kegiatan?: string
           nominal?: number
           waktu?: string
+        }
+        Relationships: []
+      }
+      pengurus: {
+        Row: {
+          alamat: string
+          bidang: string
+          created_at: string
+          id: string
+          nama: string
+          no_whatsapp: string
+          pendidikan_terakhir: string
+          tanggal_lahir: string
+          tempat_lahir: string
+        }
+        Insert: {
+          alamat?: string
+          bidang: string
+          created_at?: string
+          id?: string
+          nama: string
+          no_whatsapp?: string
+          pendidikan_terakhir?: string
+          tanggal_lahir?: string
+          tempat_lahir?: string
+        }
+        Update: {
+          alamat?: string
+          bidang?: string
+          created_at?: string
+          id?: string
+          nama?: string
+          no_whatsapp?: string
+          pendidikan_terakhir?: string
+          tanggal_lahir?: string
+          tempat_lahir?: string
+        }
+        Relationships: []
+      }
+      pj: {
+        Row: {
+          alamat: string
+          bendahara: string
+          created_at: string
+          id: string
+          ketua: string
+          nama_pj: string
+          no_whatsapp: string
+          nomor_sk: string
+          sekretaris: string
+        }
+        Insert: {
+          alamat?: string
+          bendahara?: string
+          created_at?: string
+          id?: string
+          ketua?: string
+          nama_pj: string
+          no_whatsapp?: string
+          nomor_sk?: string
+          sekretaris?: string
+        }
+        Update: {
+          alamat?: string
+          bendahara?: string
+          created_at?: string
+          id?: string
+          ketua?: string
+          nama_pj?: string
+          no_whatsapp?: string
+          nomor_sk?: string
+          sekretaris?: string
         }
         Relationships: []
       }
