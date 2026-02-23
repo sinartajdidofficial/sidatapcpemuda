@@ -1,4 +1,4 @@
-import { Mail, MailOpen, Wallet, CheckCircle, Loader2 } from 'lucide-react';
+import { Mail, MailOpen, Wallet, CheckCircle, Loader2, UserCheck, Users, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +51,33 @@ export default function Dashboard() {
     },
   });
 
+  const { data: pengurusCount = 0 } = useQuery({
+    queryKey: ['pengurus-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('pengurus').select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const { data: anggotaCount = 0 } = useQuery({
+    queryKey: ['anggota-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('anggota').select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const { data: pjCount = 0 } = useQuery({
+    queryKey: ['pj-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('pj').select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   const isLoading = loadingSurat || loadingKeuangan || loadingProker;
 
   const suratMasuk = suratList.filter((s) => s.jenis === 'masuk').length;
@@ -71,6 +98,9 @@ export default function Dashboard() {
     { label: 'Surat Keluar', value: suratKeluar, icon: Mail, color: 'bg-warning text-warning-foreground' },
     { label: 'Saldo Keuangan', value: `Rp ${saldo.toLocaleString('id-ID')}`, icon: Wallet, color: 'bg-success text-success-foreground' },
     { label: 'Proker Terlaksana', value: `${prokerTerlaksana}/${prokerList.length}`, icon: CheckCircle, color: 'bg-primary text-primary-foreground' },
+    { label: 'Pengurus', value: pengurusCount, icon: UserCheck, color: 'bg-accent text-accent-foreground' },
+    { label: 'Anggota', value: anggotaCount, icon: Users, color: 'bg-secondary text-secondary-foreground' },
+    { label: 'Pimpinan Jamaah', value: pjCount, icon: Building2, color: 'bg-muted text-muted-foreground' },
   ];
 
   if (isLoading) {
