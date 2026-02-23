@@ -1,79 +1,89 @@
 import { useState } from 'react';
-import { Plus, FileDown, Trash2, Edit, Mail, MailOpen } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
+import { Plus, FileDown, Trash2, Edit, Mail, MailOpen, Loader2 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
-import type { Surat } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
-const emptySurat: Omit<Surat, 'id'> = {
-  jenis: 'masuk',
-  nama: '',
-  nomor: '',
-  waktu: '',
-  pengirim: '',
-  penerima: '',
-  keterangan: '',
-};
+interface SuratForm {
+  jenis: 'masuk' | 'keluar';
+  nama: string;
+  nomor: string;
+  waktu: string;
+  pengirim: string;
+  penerima: string;
+  keterangan: string;
+}
+
+const emptyForm: SuratForm = { jenis: 'masuk', nama: '', nomor: '', waktu: '', pengirim: '', penerima: '', keterangan: '' };
 
 export default function SuratPage() {
-  const [suratList, setSuratList] = useLocalStorage<Surat[]>('surat', []);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Surat, 'id'>>(emptySurat);
+  const [form, setForm] = useState<SuratForm>(emptyForm);
   const [filter, setFilter] = useState<'semua' | 'masuk' | 'keluar'>('semua');
+
+  const { data: suratList = [], isLoading } = useQuery({
+    queryKey: ['surat'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('surat').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data.map((r) => ({
+        id: r.id, jenis: r.jenis as 'masuk' | 'keluar', nama: r.nama, nomor: r.nomor,
+        waktu: r.waktu, pengirim: r.pengirim, penerima: r.penerima, keterangan: r.keterangan,
+      }));
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const row = { jenis: form.jenis, nama: form.nama, nomor: form.nomor, waktu: form.waktu, pengirim: form.pengirim, penerima: form.penerima, keterangan: form.keterangan };
+      if (editId) {
+        const { error } = await supabase.from('surat').update(row).eq('id', editId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('surat').insert(row);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['surat'] }); setOpen(false); toast.success('Data berhasil disimpan'); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('surat').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['surat'] }); toast.success('Data berhasil dihapus'); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const filtered = filter === 'semua' ? suratList : suratList.filter((s) => s.jenis === filter);
 
-  function openCreate() {
-    setEditId(null);
-    setForm(emptySurat);
-    setOpen(true);
-  }
-
-  function openEdit(surat: Surat) {
+  function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
+  function openEdit(surat: typeof suratList[0]) {
     setEditId(surat.id);
     setForm({ jenis: surat.jenis, nama: surat.nama, nomor: surat.nomor, waktu: surat.waktu, pengirim: surat.pengirim, penerima: surat.penerima, keterangan: surat.keterangan });
     setOpen(true);
   }
-
-  function handleSave() {
-    if (!form.nama || !form.nomor) return;
-    if (editId) {
-      setSuratList(suratList.map((s) => (s.id === editId ? { ...s, ...form } : s)));
-    } else {
-      setSuratList([...suratList, { id: uuidv4(), ...form }]);
-    }
-    setOpen(false);
-  }
-
-  function handleDelete(id: string) {
-    setSuratList(suratList.filter((s) => s.id !== id));
-  }
+  function handleSave() { if (!form.nama || !form.nomor) return; saveMutation.mutate(); }
 
   function handleExport(type: 'pdf' | 'excel') {
     const headers = ['No', 'Jenis', 'Nama Surat', 'Nomor', 'Waktu', 'Pengirim', 'Penerima', 'Keterangan'];
@@ -94,12 +104,9 @@ export default function SuratPage() {
             <TabsTrigger value="keluar" className="text-xs px-3">Keluar</TabsTrigger>
           </TabsList>
         </Tabs>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <FileDown size={16} className="mr-1" /> Export
-            </Button>
+            <Button variant="outline" size="sm"><FileDown size={16} className="mr-1" /> Export</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => handleExport('pdf')}>Export PDF</DropdownMenuItem>
@@ -108,7 +115,9 @@ export default function SuratPage() {
         </DropdownMenu>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="text-center py-16"><Loader2 className="mx-auto animate-spin text-muted-foreground" /></div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
           <Mail size={48} className="mx-auto mb-3 opacity-30" />
           Belum ada data surat
@@ -129,12 +138,8 @@ export default function SuratPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(surat)}>
-                    <Edit size={14} />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(surat.id)}>
-                    <Trash2 size={14} />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(surat)}><Edit size={14} /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(surat.id)}><Trash2 size={14} /></Button>
                 </div>
               </div>
             </div>
@@ -142,17 +147,11 @@ export default function SuratPage() {
         </div>
       )}
 
-      {/* FAB */}
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform">
-        <Plus size={24} />
-      </button>
+      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      {/* Form Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{editId ? 'Edit Surat' : 'Tambah Surat'}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? 'Edit Surat' : 'Tambah Surat'}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
               <Label>Jenis Surat</Label>
@@ -164,31 +163,14 @@ export default function SuratPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Nama Surat</Label>
-              <Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} />
-            </div>
-            <div>
-              <Label>Nomor Surat</Label>
-              <Input value={form.nomor} onChange={(e) => setForm({ ...form, nomor: e.target.value })} />
-            </div>
-            <div>
-              <Label>Waktu Surat</Label>
-              <Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} />
-            </div>
-            <div>
-              <Label>Pengirim</Label>
-              <Input value={form.pengirim} onChange={(e) => setForm({ ...form, pengirim: e.target.value })} />
-            </div>
-            <div>
-              <Label>Penerima</Label>
-              <Input value={form.penerima} onChange={(e) => setForm({ ...form, penerima: e.target.value })} />
-            </div>
-            <div>
-              <Label>Keterangan</Label>
-              <Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} />
-            </div>
-            <Button className="w-full" onClick={handleSave}>
+            <div><Label>Nama Surat</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
+            <div><Label>Nomor Surat</Label><Input value={form.nomor} onChange={(e) => setForm({ ...form, nomor: e.target.value })} /></div>
+            <div><Label>Waktu Surat</Label><Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} /></div>
+            <div><Label>Pengirim</Label><Input value={form.pengirim} onChange={(e) => setForm({ ...form, pengirim: e.target.value })} /></div>
+            <div><Label>Penerima</Label><Input value={form.penerima} onChange={(e) => setForm({ ...form, penerima: e.target.value })} /></div>
+            <div><Label>Keterangan</Label><Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} /></div>
+            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
               {editId ? 'Simpan Perubahan' : 'Tambah Surat'}
             </Button>
           </div>

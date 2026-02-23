@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Plus, FileDown, Trash2, Edit, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
+import { Plus, FileDown, Trash2, Edit, TrendingUp, TrendingDown, Wallet, Loader2 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
-import type { Keuangan } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,8 +18,17 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
-const emptyKeuangan: Omit<Keuangan, 'id'> = {
+interface KeuanganForm {
+  jenis: 'masuk' | 'keluar';
+  namaKegiatan: string;
+  waktu: string;
+  nominal: number;
+  keterangan: string;
+}
+
+const emptyForm: KeuanganForm = {
   jenis: 'masuk',
   namaKegiatan: '',
   waktu: '',
@@ -29,39 +37,61 @@ const emptyKeuangan: Omit<Keuangan, 'id'> = {
 };
 
 export default function KeuanganPage() {
-  const [list, setList] = useLocalStorage<Keuangan[]>('keuangan', []);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Keuangan, 'id'>>(emptyKeuangan);
+  const [form, setForm] = useState<KeuanganForm>(emptyForm);
   const [filter, setFilter] = useState<'semua' | 'masuk' | 'keluar'>('semua');
+
+  const { data: list = [], isLoading } = useQuery({
+    queryKey: ['keuangan'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('keuangan').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data.map((r) => ({
+        id: r.id,
+        jenis: r.jenis as 'masuk' | 'keluar',
+        namaKegiatan: r.nama_kegiatan,
+        waktu: r.waktu,
+        nominal: Number(r.nominal),
+        keterangan: r.keterangan,
+      }));
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const row = { jenis: form.jenis, nama_kegiatan: form.namaKegiatan, waktu: form.waktu, nominal: form.nominal, keterangan: form.keterangan };
+      if (editId) {
+        const { error } = await supabase.from('keuangan').update(row).eq('id', editId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('keuangan').insert(row);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['keuangan'] }); setOpen(false); toast.success('Data berhasil disimpan'); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('keuangan').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['keuangan'] }); toast.success('Data berhasil dihapus'); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const filtered = filter === 'semua' ? list : list.filter((k) => k.jenis === filter);
 
-  function openCreate() {
-    setEditId(null);
-    setForm(emptyKeuangan);
-    setOpen(true);
-  }
-
-  function openEdit(item: Keuangan) {
+  function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
+  function openEdit(item: typeof list[0]) {
     setEditId(item.id);
     setForm({ jenis: item.jenis, namaKegiatan: item.namaKegiatan, waktu: item.waktu, nominal: item.nominal, keterangan: item.keterangan });
     setOpen(true);
   }
-
-  function handleSave() {
-    if (!form.namaKegiatan || !form.nominal) return;
-    if (editId) {
-      setList(list.map((k) => (k.id === editId ? { ...k, ...form } : k)));
-    } else {
-      setList([...list, { id: uuidv4(), ...form }]);
-    }
-    setOpen(false);
-  }
-
-  function handleDelete(id: string) {
-    setList(list.filter((k) => k.id !== id));
-  }
+  function handleSave() { if (!form.namaKegiatan || !form.nominal) return; saveMutation.mutate(); }
 
   function handleExport(type: 'pdf' | 'excel') {
     const headers = ['No', 'Jenis', 'Nama Kegiatan', 'Waktu', 'Nominal', 'Keterangan'];
@@ -82,12 +112,9 @@ export default function KeuanganPage() {
             <TabsTrigger value="keluar" className="text-xs px-3">Keluar</TabsTrigger>
           </TabsList>
         </Tabs>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <FileDown size={16} className="mr-1" /> Export
-            </Button>
+            <Button variant="outline" size="sm"><FileDown size={16} className="mr-1" /> Export</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => handleExport('pdf')}>Export PDF</DropdownMenuItem>
@@ -96,7 +123,9 @@ export default function KeuanganPage() {
         </DropdownMenu>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="text-center py-16"><Loader2 className="mx-auto animate-spin text-muted-foreground" /></div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
           <Wallet size={48} className="mx-auto mb-3 opacity-30" />
           Belum ada data keuangan
@@ -119,12 +148,8 @@ export default function KeuanganPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
-                    <Edit size={14} />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item.id)}>
-                    <Trash2 size={14} />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
                 </div>
               </div>
             </div>
@@ -132,15 +157,11 @@ export default function KeuanganPage() {
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform">
-        <Plus size={24} />
-      </button>
+      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{editId ? 'Edit Keuangan' : 'Tambah Keuangan'}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? 'Edit Keuangan' : 'Tambah Keuangan'}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
               <Label>Jenis</Label>
@@ -152,23 +173,12 @@ export default function KeuanganPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Nama Kegiatan</Label>
-              <Input value={form.namaKegiatan} onChange={(e) => setForm({ ...form, namaKegiatan: e.target.value })} />
-            </div>
-            <div>
-              <Label>Waktu</Label>
-              <Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} />
-            </div>
-            <div>
-              <Label>Nominal (Rp)</Label>
-              <Input type="number" value={form.nominal || ''} onChange={(e) => setForm({ ...form, nominal: Number(e.target.value) })} />
-            </div>
-            <div>
-              <Label>Keterangan</Label>
-              <Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} />
-            </div>
-            <Button className="w-full" onClick={handleSave}>
+            <div><Label>Nama Kegiatan</Label><Input value={form.namaKegiatan} onChange={(e) => setForm({ ...form, namaKegiatan: e.target.value })} /></div>
+            <div><Label>Waktu</Label><Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} /></div>
+            <div><Label>Nominal (Rp)</Label><Input type="number" value={form.nominal || ''} onChange={(e) => setForm({ ...form, nominal: Number(e.target.value) })} /></div>
+            <div><Label>Keterangan</Label><Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} /></div>
+            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
               {editId ? 'Simpan Perubahan' : 'Tambah Data'}
             </Button>
           </div>
