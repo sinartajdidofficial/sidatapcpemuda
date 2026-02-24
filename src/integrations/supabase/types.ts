@@ -22,6 +22,7 @@ export type Database = {
           nama: string
           no_whatsapp: string
           pendidikan_terakhir: string
+          tahun_masuk: string
           tanggal_lahir: string
           tempat_lahir: string
         }
@@ -32,6 +33,7 @@ export type Database = {
           nama: string
           no_whatsapp?: string
           pendidikan_terakhir?: string
+          tahun_masuk?: string
           tanggal_lahir?: string
           tempat_lahir?: string
         }
@@ -42,6 +44,7 @@ export type Database = {
           nama?: string
           no_whatsapp?: string
           pendidikan_terakhir?: string
+          tahun_masuk?: string
           tanggal_lahir?: string
           tempat_lahir?: string
         }
@@ -81,6 +84,7 @@ export type Database = {
         Row: {
           alamat: string
           bidang: string
+          bidang_utama: string
           created_at: string
           id: string
           nama: string
@@ -92,6 +96,7 @@ export type Database = {
         Insert: {
           alamat?: string
           bidang: string
+          bidang_utama?: string
           created_at?: string
           id?: string
           nama: string
@@ -103,6 +108,7 @@ export type Database = {
         Update: {
           alamat?: string
           bidang?: string
+          bidang_utama?: string
           created_at?: string
           id?: string
           nama?: string
