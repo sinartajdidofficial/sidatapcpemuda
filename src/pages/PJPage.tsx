@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit, Building2, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit, Building2, Loader2, ArrowLeft, FileDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
 
 interface Form {
   nama_pj: string; ketua: string; sekretaris: string; bendahara: string;
@@ -59,11 +61,33 @@ export default function PJPage() {
   }
   function handleSave() { if (!form.nama_pj) return; saveMutation.mutate(); }
 
+  function handleExport(type: 'pdf' | 'excel') {
+    const headers = ['No', 'Nama PJ', 'Ketua', 'Sekretaris', 'Bendahara', 'No. SK', 'Alamat', 'No. WA'];
+    const rows = list.map((item, i) => [
+      String(i + 1), item.nama_pj, item.ketua, item.sekretaris, item.bendahara, item.nomor_sk, item.alamat, item.no_whatsapp,
+    ]);
+    if (type === 'pdf') exportToPdf('Data Pimpinan Jamaah', headers, rows);
+    else exportToExcel('Data Pimpinan Jamaah', headers, rows);
+  }
+
   return (
     <AppLayout title="Data PJ">
-      <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4 hover:text-foreground">
-        <ArrowLeft size={16} /> Kembali
-      </Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft size={16} /> Kembali
+        </Link>
+        {list.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm"><FileDown size={14} className="mr-1" /> Export</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('pdf')}>Export PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('excel')}>Export Excel</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
       {isLoading ? (
         <div className="text-center py-16"><Loader2 className="mx-auto animate-spin text-muted-foreground" /></div>
