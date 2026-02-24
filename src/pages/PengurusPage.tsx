@@ -24,6 +24,7 @@ const bidangOptions: BidangGarapan[] = [
 ];
 
 const bidangColors: Record<string, string> = {
+  'Pimpinan': 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300',
   'Penasehat': 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
   'Ketua Umum': 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300',
   'Wakil Ketua': 'bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300',
@@ -45,8 +46,10 @@ interface Form {
 }
 const emptyForm: Form = { nama: '', bidang: 'Pendidikan', bidang_utama: '', tempat_lahir: '', tanggal_lahir: '', alamat: '', pendidikan_terakhir: '', no_whatsapp: '' };
 
-// Order for org chart display
-const sectionOrder = [...bidangUtamaOptions, ...bidangOptions];
+// Pimpinan roles grouped together
+const pimpinanRoles = ['Ketua Umum', 'Wakil Ketua', 'Sekretaris', 'Bendahara'];
+// Order for org chart: Penasehat, then Pimpinan (grouped), then bidang garapan
+const chartSections = ['Penasehat', 'Pimpinan', ...bidangOptions] as const;
 
 export default function PengurusPage() {
   const qc = useQueryClient();
@@ -111,15 +114,28 @@ export default function PengurusPage() {
   }
   function handleSave() { if (!form.nama) return; saveMutation.mutate(); }
 
-  function getSection(item: typeof list[0]): string {
+  function getChartSection(item: typeof list[0]): string {
     const bu = (item as any).bidang_utama;
-    return bu || item.bidang;
+    if (!bu) return item.bidang;
+    if (pimpinanRoles.includes(bu)) return 'Pimpinan';
+    return bu; // Penasehat
   }
 
   // Group by section for org chart
-  const grouped = sectionOrder
-    .map((section) => ({ section, members: list.filter((p) => getSection(p) === section) }))
+  const grouped = chartSections
+    .map((section) => ({ section, members: list.filter((p) => getChartSection(p) === section) }))
     .filter((g) => g.members.length > 0);
+
+  // Sort Pimpinan members by role order
+  grouped.forEach((g) => {
+    if (g.section === 'Pimpinan') {
+      g.members.sort((a, b) => {
+        const aIdx = pimpinanRoles.indexOf((a as any).bidang_utama || '');
+        const bIdx = pimpinanRoles.indexOf((b as any).bidang_utama || '');
+        return aIdx - bIdx;
+      });
+    }
+  });
 
   function handleExport(type: 'pdf' | 'excel') {
     const headers = ['No', 'Nama', 'Bidang Utama', 'Bidang Garapan', 'Tempat Lahir', 'Tgl Lahir', 'Alamat', 'Pendidikan', 'No. WA'];
@@ -178,7 +194,12 @@ export default function PengurusPage() {
                     <div className="absolute -left-5 top-5 w-5 border-t-2 border-border" />
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{item.nama}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm truncate">{item.nama}</p>
+                          {group.section === 'Pimpinan' && (item as any).bidang_utama && (
+                            <Badge variant="outline" className="text-[10px] shrink-0">{(item as any).bidang_utama}</Badge>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">{item.tempat_lahir}{item.tanggal_lahir ? `, ${item.tanggal_lahir}` : ''}</p>
                         {item.pendidikan_terakhir && <p className="text-[11px] text-muted-foreground">📚 {item.pendidikan_terakhir}</p>}
                         {item.no_whatsapp && <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5"><Phone size={10} /> {item.no_whatsapp}</p>}
