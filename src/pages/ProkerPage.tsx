@@ -10,16 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 const bidangOptions: BidangGarapan[] = [
   'Pendidikan', 'Dakwah', 'Kaderisasi', "Jam'iyyah", 'Infokom', 'Ekonomi Sosial', 'Seni & Olahraga', 'HLO',
@@ -41,6 +36,7 @@ const emptyForm: ProkerForm = {
 };
 
 export default function ProkerPage() {
+  const readOnly = useReadOnly();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -139,52 +135,58 @@ export default function ProkerPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">{item.tempat} • {item.waktuPelaksanaan}</p>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <>
+          <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Program' : 'Tambah Program'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div><Label>Nama Program</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
-            <div>
-              <Label>Bidang Garapan</Label>
-              <Select value={form.bidang} onValueChange={(v) => setForm({ ...form, bidang: v as BidangGarapan })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{bidangOptions.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label>Waktu Pelaksanaan</Label><Input type="date" value={form.waktuPelaksanaan} onChange={(e) => setForm({ ...form, waktuPelaksanaan: e.target.value })} /></div>
-            <div><Label>Tempat Pelaksanaan</Label><Input value={form.tempat} onChange={(e) => setForm({ ...form, tempat: e.target.value })} /></div>
-            <div><Label>Tujuan Pelaksanaan</Label><Textarea value={form.tujuan} onChange={(e) => setForm({ ...form, tujuan: e.target.value })} /></div>
-            <div>
-              <Label>Realisasi</Label>
-              <Select value={form.realisasi} onValueChange={(v) => setForm({ ...form, realisasi: v as 'Terlaksana' | 'Belum Terlaksana' })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Belum Terlaksana">Belum Terlaksana</SelectItem>
-                  <SelectItem value="Terlaksana">Terlaksana</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>Kendala</Label><Textarea value={form.kendala} onChange={(e) => setForm({ ...form, kendala: e.target.value })} /></div>
-            <div><Label>Solusi</Label><Textarea value={form.solusi} onChange={(e) => setForm({ ...form, solusi: e.target.value })} /></div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
-              {editId ? 'Simpan Perubahan' : 'Tambah Program'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+              <DialogHeader><DialogTitle>{editId ? 'Edit Program' : 'Tambah Program'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div><Label>Nama Program</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
+                <div>
+                  <Label>Bidang Garapan</Label>
+                  <Select value={form.bidang} onValueChange={(v) => setForm({ ...form, bidang: v as BidangGarapan })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{bidangOptions.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Waktu Pelaksanaan</Label><Input type="date" value={form.waktuPelaksanaan} onChange={(e) => setForm({ ...form, waktuPelaksanaan: e.target.value })} /></div>
+                <div><Label>Tempat Pelaksanaan</Label><Input value={form.tempat} onChange={(e) => setForm({ ...form, tempat: e.target.value })} /></div>
+                <div><Label>Tujuan Pelaksanaan</Label><Textarea value={form.tujuan} onChange={(e) => setForm({ ...form, tujuan: e.target.value })} /></div>
+                <div>
+                  <Label>Realisasi</Label>
+                  <Select value={form.realisasi} onValueChange={(v) => setForm({ ...form, realisasi: v as 'Terlaksana' | 'Belum Terlaksana' })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Belum Terlaksana">Belum Terlaksana</SelectItem>
+                      <SelectItem value="Terlaksana">Terlaksana</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Kendala</Label><Textarea value={form.kendala} onChange={(e) => setForm({ ...form, kendala: e.target.value })} /></div>
+                <div><Label>Solusi</Label><Textarea value={form.solusi} onChange={(e) => setForm({ ...form, solusi: e.target.value })} /></div>
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                  {editId ? 'Simpan Perubahan' : 'Tambah Program'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </AppLayout>
   );
 }

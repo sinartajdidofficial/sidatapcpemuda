@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Mail, Wallet, ClipboardList, Database } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -17,6 +18,8 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, title = 'Dashboard' }: AppLayoutProps) {
   const location = useLocation();
+  const readOnly = useReadOnly();
+  const prefix = readOnly ? '/view' : '';
 
   return (
     <div className="min-h-screen bg-background max-w-lg mx-auto relative">
@@ -39,11 +42,13 @@ export default function AppLayout({ children, title = 'Dashboard' }: AppLayoutPr
       <nav className="bottom-nav max-w-lg mx-auto">
         <div className="flex justify-around items-center py-2">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
+            const to = `${prefix}${item.to}`;
+            const basePath = `${prefix}${item.to}`;
+            const isActive = location.pathname === to || (item.to !== '/' && location.pathname.startsWith(basePath));
             return (
               <NavLink
                 key={item.to}
-                to={item.to}
+                to={to}
                 className="flex flex-col items-center gap-0.5 px-2 py-1 relative"
               >
                 {isActive && (

@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 interface Form {
   nama_rapat: string;
@@ -25,6 +26,8 @@ interface Form {
 const emptyForm: Form = { nama_rapat: '', tanggal_rapat: '', tempat_rapat: '', hasil_rapat: '', notulis: '' };
 
 export default function NotulensiPage() {
+  const readOnly = useReadOnly();
+  const prefix = readOnly ? '/view' : '';
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [viewItem, setViewItem] = useState<any>(null);
@@ -76,13 +79,7 @@ export default function NotulensiPage() {
   function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
   function openEdit(item: any) {
     setEditId(item.id);
-    setForm({
-      nama_rapat: item.nama_rapat,
-      tanggal_rapat: item.tanggal_rapat,
-      tempat_rapat: item.tempat_rapat,
-      hasil_rapat: item.hasil_rapat,
-      notulis: item.notulis,
-    });
+    setForm({ nama_rapat: item.nama_rapat, tanggal_rapat: item.tanggal_rapat, tempat_rapat: item.tempat_rapat, hasil_rapat: item.hasil_rapat, notulis: item.notulis });
     setOpen(true);
   }
   function handleSave() { if (!form.nama_rapat || !form.tanggal_rapat) return; saveMutation.mutate(); }
@@ -107,7 +104,7 @@ export default function NotulensiPage() {
   return (
     <AppLayout title="Notulensi Rapat">
       <div className="flex items-center justify-between mb-4">
-        <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${prefix}/data-pc`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={16} /> Kembali
         </Link>
         {list.length > 0 && (
@@ -154,10 +151,12 @@ export default function NotulensiPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-0.5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Edit size={13} /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={13} /></Button>
-                  </div>
+                  {!readOnly && (
+                    <div className="flex gap-0.5 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Edit size={13} /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={13} /></Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -182,42 +181,46 @@ export default function NotulensiPage() {
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      )}
 
-      {/* Form Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Notulensi' : 'Tambah Notulensi'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div><Label>Nama Rapat</Label><Input value={form.nama_rapat} onChange={(e) => setForm({ ...form, nama_rapat: e.target.value })} /></div>
-            <div><Label>Tanggal Rapat</Label><Input type="date" value={form.tanggal_rapat} onChange={(e) => setForm({ ...form, tanggal_rapat: e.target.value })} /></div>
-            <div><Label>Tempat Rapat</Label><Input value={form.tempat_rapat} onChange={(e) => setForm({ ...form, tempat_rapat: e.target.value })} /></div>
-            <div>
-              <Label>Notulis Rapat</Label>
-              <Select value={form.notulis || '_none'} onValueChange={(v) => setForm({ ...form, notulis: v === '_none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Pilih Notulis" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">— Pilih Notulis —</SelectItem>
-                  {pengurusList.map((p) => <SelectItem key={p.nama} value={p.nama}>{p.nama}</SelectItem>)}
-                </SelectContent>
-              </Select>
+      {/* Form Dialog - only for non-readonly */}
+      {!readOnly && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+            <DialogHeader><DialogTitle>{editId ? 'Edit Notulensi' : 'Tambah Notulensi'}</DialogTitle></DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div><Label>Nama Rapat</Label><Input value={form.nama_rapat} onChange={(e) => setForm({ ...form, nama_rapat: e.target.value })} /></div>
+              <div><Label>Tanggal Rapat</Label><Input type="date" value={form.tanggal_rapat} onChange={(e) => setForm({ ...form, tanggal_rapat: e.target.value })} /></div>
+              <div><Label>Tempat Rapat</Label><Input value={form.tempat_rapat} onChange={(e) => setForm({ ...form, tempat_rapat: e.target.value })} /></div>
+              <div>
+                <Label>Notulis Rapat</Label>
+                <Select value={form.notulis || '_none'} onValueChange={(v) => setForm({ ...form, notulis: v === '_none' ? '' : v })}>
+                  <SelectTrigger><SelectValue placeholder="Pilih Notulis" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Pilih Notulis —</SelectItem>
+                    {pengurusList.map((p) => <SelectItem key={p.nama} value={p.nama}>{p.nama}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Hasil Rapat</Label>
+                <Textarea
+                  className="min-h-[160px]"
+                  placeholder="Tuliskan hasil rapat secara lengkap..."
+                  value={form.hasil_rapat}
+                  onChange={(e) => setForm({ ...form, hasil_rapat: e.target.value })}
+                />
+              </div>
+              <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
+                {editId ? 'Simpan Perubahan' : 'Tambah Notulensi'}
+              </Button>
             </div>
-            <div>
-              <Label>Hasil Rapat</Label>
-              <Textarea
-                className="min-h-[160px]"
-                placeholder="Tuliskan hasil rapat secara lengkap..."
-                value={form.hasil_rapat}
-                onChange={(e) => setForm({ ...form, hasil_rapat: e.target.value })}
-              />
-            </div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
-              {editId ? 'Simpan Perubahan' : 'Tambah Notulensi'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* View Detail Dialog */}
       <Dialog open={!!viewItem} onOpenChange={() => setViewItem(null)}>

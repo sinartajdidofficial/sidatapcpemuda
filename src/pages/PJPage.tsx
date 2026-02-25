@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 interface Form {
   nama_pj: string; ketua: string; sekretaris: string; bendahara: string;
@@ -19,6 +20,8 @@ interface Form {
 const emptyForm: Form = { nama_pj: '', ketua: '', sekretaris: '', bendahara: '', nomor_sk: '', alamat: '', no_whatsapp: '' };
 
 export default function PJPage() {
+  const readOnly = useReadOnly();
+  const prefix = readOnly ? '/view' : '';
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -73,7 +76,7 @@ export default function PJPage() {
   return (
     <AppLayout title="Data PJ">
       <div className="flex items-center justify-between mb-4">
-        <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${prefix}/data-pc`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={16} /> Kembali
         </Link>
         {list.length > 0 && (
@@ -107,36 +110,42 @@ export default function PJPage() {
                   <p className="text-xs text-muted-foreground">Bendahara: {item.bendahara}</p>
                   {item.nomor_sk && <p className="text-xs text-muted-foreground">SK: {item.nomor_sk}</p>}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <>
+          <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit PJ' : 'Tambah PJ'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div><Label>Nama Pimpinan Jamaah</Label><Input value={form.nama_pj} onChange={(e) => setForm({ ...form, nama_pj: e.target.value })} /></div>
-            <div><Label>Ketua</Label><Input value={form.ketua} onChange={(e) => setForm({ ...form, ketua: e.target.value })} /></div>
-            <div><Label>Sekretaris</Label><Input value={form.sekretaris} onChange={(e) => setForm({ ...form, sekretaris: e.target.value })} /></div>
-            <div><Label>Bendahara</Label><Input value={form.bendahara} onChange={(e) => setForm({ ...form, bendahara: e.target.value })} /></div>
-            <div><Label>Nomor SK</Label><Input value={form.nomor_sk} onChange={(e) => setForm({ ...form, nomor_sk: e.target.value })} /></div>
-            <div><Label>Alamat</Label><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
-            <div><Label>No. WhatsApp</Label><Input value={form.no_whatsapp} onChange={(e) => setForm({ ...form, no_whatsapp: e.target.value })} /></div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
-              {editId ? 'Simpan Perubahan' : 'Tambah PJ'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+              <DialogHeader><DialogTitle>{editId ? 'Edit PJ' : 'Tambah PJ'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div><Label>Nama Pimpinan Jamaah</Label><Input value={form.nama_pj} onChange={(e) => setForm({ ...form, nama_pj: e.target.value })} /></div>
+                <div><Label>Ketua</Label><Input value={form.ketua} onChange={(e) => setForm({ ...form, ketua: e.target.value })} /></div>
+                <div><Label>Sekretaris</Label><Input value={form.sekretaris} onChange={(e) => setForm({ ...form, sekretaris: e.target.value })} /></div>
+                <div><Label>Bendahara</Label><Input value={form.bendahara} onChange={(e) => setForm({ ...form, bendahara: e.target.value })} /></div>
+                <div><Label>Nomor SK</Label><Input value={form.nomor_sk} onChange={(e) => setForm({ ...form, nomor_sk: e.target.value })} /></div>
+                <div><Label>Alamat</Label><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
+                <div><Label>No. WhatsApp</Label><Input value={form.no_whatsapp} onChange={(e) => setForm({ ...form, no_whatsapp: e.target.value })} /></div>
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
+                  {editId ? 'Simpan Perubahan' : 'Tambah PJ'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </AppLayout>
   );
 }

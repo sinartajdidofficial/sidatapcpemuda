@@ -8,17 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 interface SuratForm {
   jenis: 'masuk' | 'keluar';
@@ -33,6 +28,7 @@ interface SuratForm {
 const emptyForm: SuratForm = { jenis: 'masuk', nama: '', nomor: '', waktu: '', pengirim: '', penerima: '', keterangan: '' };
 
 export default function SuratPage() {
+  const readOnly = useReadOnly();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -137,45 +133,51 @@ export default function SuratPage() {
                     <p className="text-xs text-muted-foreground mt-1">{surat.waktu}</p>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(surat)}><Edit size={14} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(surat.id)}><Trash2 size={14} /></Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(surat)}><Edit size={14} /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(surat.id)}><Trash2 size={14} /></Button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <>
+          <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Surat' : 'Tambah Surat'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>Jenis Surat</Label>
-              <Select value={form.jenis} onValueChange={(v) => setForm({ ...form, jenis: v as 'masuk' | 'keluar' })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="masuk">Surat Masuk</SelectItem>
-                  <SelectItem value="keluar">Surat Keluar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>Nama Surat</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
-            <div><Label>Nomor Surat</Label><Input value={form.nomor} onChange={(e) => setForm({ ...form, nomor: e.target.value })} /></div>
-            <div><Label>Waktu Surat</Label><Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} /></div>
-            <div><Label>Pengirim</Label><Input value={form.pengirim} onChange={(e) => setForm({ ...form, pengirim: e.target.value })} /></div>
-            <div><Label>Penerima</Label><Input value={form.penerima} onChange={(e) => setForm({ ...form, penerima: e.target.value })} /></div>
-            <div><Label>Keterangan</Label><Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} /></div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
-              {editId ? 'Simpan Perubahan' : 'Tambah Surat'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+              <DialogHeader><DialogTitle>{editId ? 'Edit Surat' : 'Tambah Surat'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div>
+                  <Label>Jenis Surat</Label>
+                  <Select value={form.jenis} onValueChange={(v) => setForm({ ...form, jenis: v as 'masuk' | 'keluar' })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="masuk">Surat Masuk</SelectItem>
+                      <SelectItem value="keluar">Surat Keluar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Nama Surat</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
+                <div><Label>Nomor Surat</Label><Input value={form.nomor} onChange={(e) => setForm({ ...form, nomor: e.target.value })} /></div>
+                <div><Label>Waktu Surat</Label><Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} /></div>
+                <div><Label>Pengirim</Label><Input value={form.pengirim} onChange={(e) => setForm({ ...form, pengirim: e.target.value })} /></div>
+                <div><Label>Penerima</Label><Input value={form.penerima} onChange={(e) => setForm({ ...form, penerima: e.target.value })} /></div>
+                <div><Label>Keterangan</Label><Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} /></div>
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                  {editId ? 'Simpan Perubahan' : 'Tambah Surat'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </AppLayout>
   );
 }

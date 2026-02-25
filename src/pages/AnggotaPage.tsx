@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 interface Form {
   nama: string; tempat_lahir: string; tanggal_lahir: string;
@@ -20,6 +21,8 @@ interface Form {
 const emptyForm: Form = { nama: '', tempat_lahir: '', tanggal_lahir: '', alamat: '', pendidikan_terakhir: '', no_whatsapp: '', tahun_masuk: '' };
 
 export default function AnggotaPage() {
+  const readOnly = useReadOnly();
+  const prefix = readOnly ? '/view' : '';
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -58,11 +61,7 @@ export default function AnggotaPage() {
   function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
   function openEdit(item: typeof list[0]) {
     setEditId(item.id);
-    setForm({
-      nama: item.nama, tempat_lahir: item.tempat_lahir, tanggal_lahir: item.tanggal_lahir,
-      alamat: item.alamat, pendidikan_terakhir: item.pendidikan_terakhir, no_whatsapp: item.no_whatsapp,
-      tahun_masuk: (item as any).tahun_masuk || '',
-    });
+    setForm({ nama: item.nama, tempat_lahir: item.tempat_lahir, tanggal_lahir: item.tanggal_lahir, alamat: item.alamat, pendidikan_terakhir: item.pendidikan_terakhir, no_whatsapp: item.no_whatsapp, tahun_masuk: (item as any).tahun_masuk || '' });
     setOpen(true);
   }
   function handleSave() { if (!form.nama) return; saveMutation.mutate(); }
@@ -80,7 +79,7 @@ export default function AnggotaPage() {
   return (
     <AppLayout title="Data Anggota">
       <div className="flex items-center justify-between mb-4">
-        <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${prefix}/data-pc`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={16} /> Kembali
         </Link>
         {list.length > 0 && (
@@ -113,45 +112,51 @@ export default function AnggotaPage() {
                   {(item as any).tahun_masuk && <p className="text-xs text-muted-foreground">Tahun Masuk: {(item as any).tahun_masuk}</p>}
                   {item.no_whatsapp && <p className="text-xs text-muted-foreground">WA: {item.no_whatsapp}</p>}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <>
+          <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Anggota' : 'Tambah Anggota'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div><Label>Nama Anggota</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
-            <div><Label>Tahun Masuk</Label><Input placeholder="cth: 2024" value={form.tahun_masuk} onChange={(e) => setForm({ ...form, tahun_masuk: e.target.value })} /></div>
-            <div><Label>Tempat Lahir</Label><Input value={form.tempat_lahir} onChange={(e) => setForm({ ...form, tempat_lahir: e.target.value })} /></div>
-            <div><Label>Tanggal Lahir</Label><Input type="date" value={form.tanggal_lahir} onChange={(e) => setForm({ ...form, tanggal_lahir: e.target.value })} /></div>
-            <div><Label>Alamat</Label><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
-            <div>
-              <Label>Pendidikan Terakhir</Label>
-              <Select value={form.pendidikan_terakhir || '_none'} onValueChange={(v) => setForm({ ...form, pendidikan_terakhir: v === '_none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Pilih Pendidikan" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">— Pilih —</SelectItem>
-                  {['SD/MI', 'SMP/MTs', 'SMA/SMK/MA', 'S1', 'S2', 'S3'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>No. WhatsApp</Label><Input value={form.no_whatsapp} onChange={(e) => setForm({ ...form, no_whatsapp: e.target.value })} /></div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
-              {editId ? 'Simpan Perubahan' : 'Tambah Anggota'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+              <DialogHeader><DialogTitle>{editId ? 'Edit Anggota' : 'Tambah Anggota'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div><Label>Nama Anggota</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
+                <div><Label>Tahun Masuk</Label><Input placeholder="cth: 2024" value={form.tahun_masuk} onChange={(e) => setForm({ ...form, tahun_masuk: e.target.value })} /></div>
+                <div><Label>Tempat Lahir</Label><Input value={form.tempat_lahir} onChange={(e) => setForm({ ...form, tempat_lahir: e.target.value })} /></div>
+                <div><Label>Tanggal Lahir</Label><Input type="date" value={form.tanggal_lahir} onChange={(e) => setForm({ ...form, tanggal_lahir: e.target.value })} /></div>
+                <div><Label>Alamat</Label><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
+                <div>
+                  <Label>Pendidikan Terakhir</Label>
+                  <Select value={form.pendidikan_terakhir || '_none'} onValueChange={(v) => setForm({ ...form, pendidikan_terakhir: v === '_none' ? '' : v })}>
+                    <SelectTrigger><SelectValue placeholder="Pilih Pendidikan" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— Pilih —</SelectItem>
+                      {['SD/MI', 'SMP/MTs', 'SMA/SMK/MA', 'S1', 'S2', 'S3'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>No. WhatsApp</Label><Input value={form.no_whatsapp} onChange={(e) => setForm({ ...form, no_whatsapp: e.target.value })} /></div>
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
+                  {editId ? 'Simpan Perubahan' : 'Tambah Anggota'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </AppLayout>
   );
 }
