@@ -80,6 +80,36 @@ export type Database = {
         }
         Relationships: []
       }
+      notulensi_rapat: {
+        Row: {
+          created_at: string
+          hasil_rapat: string
+          id: string
+          nama_rapat: string
+          notulis: string
+          tanggal_rapat: string
+          tempat_rapat: string
+        }
+        Insert: {
+          created_at?: string
+          hasil_rapat?: string
+          id?: string
+          nama_rapat: string
+          notulis?: string
+          tanggal_rapat: string
+          tempat_rapat?: string
+        }
+        Update: {
+          created_at?: string
+          hasil_rapat?: string
+          id?: string
+          nama_rapat?: string
+          notulis?: string
+          tanggal_rapat?: string
+          tempat_rapat?: string
+        }
+        Relationships: []
+      }
       pengurus: {
         Row: {
           alamat: string

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Users, UserCheck, Building2 } from 'lucide-react';
+import { Users, UserCheck, Building2, BookOpen } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { motion } from 'framer-motion';
 
@@ -7,6 +7,7 @@ const menuItems = [
   { to: '/data-pc/pengurus', icon: UserCheck, label: 'Data Pengurus', desc: 'Kelola data pengurus organisasi' },
   { to: '/data-pc/anggota', icon: Users, label: 'Data Anggota', desc: 'Kelola data anggota organisasi' },
   { to: '/data-pc/pj', icon: Building2, label: 'Data PJ', desc: 'Kelola data Pimpinan Jamaah' },
+  { to: '/data-pc/notulensi', icon: BookOpen, label: 'Notulensi Rapat', desc: 'Kelola notulensi hasil rapat' },
 ];
 
 export default function DataPCPage() {
