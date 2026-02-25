@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 const bidangUtamaOptions = ['Penasehat', 'Ketua Umum', 'Wakil Ketua', 'Sekretaris', 'Bendahara'] as const;
 type BidangUtama = typeof bidangUtamaOptions[number] | '';
@@ -46,12 +47,12 @@ interface Form {
 }
 const emptyForm: Form = { nama: '', bidang: 'Pendidikan', bidang_utama: '', tempat_lahir: '', tanggal_lahir: '', alamat: '', pendidikan_terakhir: '', no_whatsapp: '' };
 
-// Pimpinan roles grouped together
 const pimpinanRoles = ['Ketua Umum', 'Wakil Ketua', 'Sekretaris', 'Bendahara'];
-// Order for org chart: Penasehat, then Pimpinan (grouped), then bidang garapan
 const chartSections = ['Penasehat', 'Pimpinan', ...bidangOptions] as const;
 
 export default function PengurusPage() {
+  const readOnly = useReadOnly();
+  const prefix = readOnly ? '/view' : '';
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -69,14 +70,9 @@ export default function PengurusPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
-        nama: form.nama,
-        bidang: form.bidang_utama ? form.bidang_utama : form.bidang,
-        bidang_utama: form.bidang_utama,
-        tempat_lahir: form.tempat_lahir,
-        tanggal_lahir: form.tanggal_lahir,
-        alamat: form.alamat,
-        pendidikan_terakhir: form.pendidikan_terakhir,
-        no_whatsapp: form.no_whatsapp,
+        nama: form.nama, bidang: form.bidang_utama ? form.bidang_utama : form.bidang,
+        bidang_utama: form.bidang_utama, tempat_lahir: form.tempat_lahir, tanggal_lahir: form.tanggal_lahir,
+        alamat: form.alamat, pendidikan_terakhir: form.pendidikan_terakhir, no_whatsapp: form.no_whatsapp,
       };
       if (editId) {
         const { error } = await supabase.from('pengurus').update(payload).eq('id', editId);
@@ -100,16 +96,7 @@ export default function PengurusPage() {
   function openEdit(item: typeof list[0]) {
     setEditId(item.id);
     const bu = (item as any).bidang_utama || '';
-    setForm({
-      nama: item.nama,
-      bidang: bu ? bu : item.bidang,
-      bidang_utama: bu,
-      tempat_lahir: item.tempat_lahir,
-      tanggal_lahir: item.tanggal_lahir,
-      alamat: item.alamat,
-      pendidikan_terakhir: item.pendidikan_terakhir,
-      no_whatsapp: item.no_whatsapp,
-    });
+    setForm({ nama: item.nama, bidang: bu ? bu : item.bidang, bidang_utama: bu, tempat_lahir: item.tempat_lahir, tanggal_lahir: item.tanggal_lahir, alamat: item.alamat, pendidikan_terakhir: item.pendidikan_terakhir, no_whatsapp: item.no_whatsapp });
     setOpen(true);
   }
   function handleSave() { if (!form.nama) return; saveMutation.mutate(); }
@@ -118,15 +105,13 @@ export default function PengurusPage() {
     const bu = (item as any).bidang_utama;
     if (!bu) return item.bidang;
     if (pimpinanRoles.includes(bu)) return 'Pimpinan';
-    return bu; // Penasehat
+    return bu;
   }
 
-  // Group by section for org chart
   const grouped = chartSections
     .map((section) => ({ section, members: list.filter((p) => getChartSection(p) === section) }))
     .filter((g) => g.members.length > 0);
 
-  // Sort Pimpinan members by role order
   grouped.forEach((g) => {
     if (g.section === 'Pimpinan') {
       g.members.sort((a, b) => {
@@ -150,7 +135,7 @@ export default function PengurusPage() {
   return (
     <AppLayout title="Data Pengurus">
       <div className="flex items-center justify-between mb-4">
-        <Link to="/data-pc" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${prefix}/data-pc`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={16} /> Kembali
         </Link>
         {list.length > 0 && (
@@ -204,10 +189,12 @@ export default function PengurusPage() {
                         {item.pendidikan_terakhir && <p className="text-[11px] text-muted-foreground">📚 {item.pendidikan_terakhir}</p>}
                         {item.no_whatsapp && <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5"><Phone size={10} /> {item.no_whatsapp}</p>}
                       </div>
-                      <div className="flex gap-0.5 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Edit size={13} /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={13} /></Button>
-                      </div>
+                      {!readOnly && (
+                        <div className="flex gap-0.5 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Edit size={13} /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={13} /></Button>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -217,53 +204,57 @@ export default function PengurusPage() {
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <>
+          <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Pengurus' : 'Tambah Pengurus'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div><Label>Nama Pengurus</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
-            <div>
-              <Label>Bidang Utama</Label>
-              <Select value={form.bidang_utama || '_none'} onValueChange={(v) => setForm({ ...form, bidang_utama: v === '_none' ? '' : v as BidangUtama })}>
-                <SelectTrigger><SelectValue placeholder="Tidak ada (pilih Bidang Garapan)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">Tidak ada</SelectItem>
-                  {bidangUtamaOptions.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            {!form.bidang_utama && (
-              <div>
-                <Label>Bidang Garapan</Label>
-                <Select value={form.bidang} onValueChange={(v) => setForm({ ...form, bidang: v as BidangGarapan })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{bidangOptions.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                </Select>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+              <DialogHeader><DialogTitle>{editId ? 'Edit Pengurus' : 'Tambah Pengurus'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div><Label>Nama Pengurus</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
+                <div>
+                  <Label>Bidang Utama</Label>
+                  <Select value={form.bidang_utama || '_none'} onValueChange={(v) => setForm({ ...form, bidang_utama: v === '_none' ? '' : v as BidangUtama })}>
+                    <SelectTrigger><SelectValue placeholder="Tidak ada (pilih Bidang Garapan)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Tidak ada</SelectItem>
+                      {bidangUtamaOptions.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {!form.bidang_utama && (
+                  <div>
+                    <Label>Bidang Garapan</Label>
+                    <Select value={form.bidang} onValueChange={(v) => setForm({ ...form, bidang: v as BidangGarapan })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{bidangOptions.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div><Label>Tempat Lahir</Label><Input value={form.tempat_lahir} onChange={(e) => setForm({ ...form, tempat_lahir: e.target.value })} /></div>
+                <div><Label>Tanggal Lahir</Label><Input type="date" value={form.tanggal_lahir} onChange={(e) => setForm({ ...form, tanggal_lahir: e.target.value })} /></div>
+                <div><Label>Alamat</Label><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
+                <div>
+                  <Label>Pendidikan Terakhir</Label>
+                  <Select value={form.pendidikan_terakhir || '_none'} onValueChange={(v) => setForm({ ...form, pendidikan_terakhir: v === '_none' ? '' : v })}>
+                    <SelectTrigger><SelectValue placeholder="Pilih Pendidikan" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— Pilih —</SelectItem>
+                      {['SD/MI', 'SMP/MTs', 'SMA/SMK/MA', 'S1', 'S2', 'S3'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>No. WhatsApp</Label><Input value={form.no_whatsapp} onChange={(e) => setForm({ ...form, no_whatsapp: e.target.value })} /></div>
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
+                  {editId ? 'Simpan Perubahan' : 'Tambah Pengurus'}
+                </Button>
               </div>
-            )}
-            <div><Label>Tempat Lahir</Label><Input value={form.tempat_lahir} onChange={(e) => setForm({ ...form, tempat_lahir: e.target.value })} /></div>
-            <div><Label>Tanggal Lahir</Label><Input type="date" value={form.tanggal_lahir} onChange={(e) => setForm({ ...form, tanggal_lahir: e.target.value })} /></div>
-            <div><Label>Alamat</Label><Input value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
-            <div>
-              <Label>Pendidikan Terakhir</Label>
-              <Select value={form.pendidikan_terakhir || '_none'} onValueChange={(v) => setForm({ ...form, pendidikan_terakhir: v === '_none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Pilih Pendidikan" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">— Pilih —</SelectItem>
-                  {['SD/MI', 'SMP/MTs', 'SMA/SMK/MA', 'S1', 'S2', 'S3'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>No. WhatsApp</Label><Input value={form.no_whatsapp} onChange={(e) => setForm({ ...form, no_whatsapp: e.target.value })} /></div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
-              {editId ? 'Simpan Perubahan' : 'Tambah Pengurus'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </AppLayout>
   );
 }

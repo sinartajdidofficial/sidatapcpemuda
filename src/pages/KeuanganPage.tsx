@@ -8,17 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 interface KeuanganForm {
   jenis: 'masuk' | 'keluar';
@@ -28,15 +23,10 @@ interface KeuanganForm {
   keterangan: string;
 }
 
-const emptyForm: KeuanganForm = {
-  jenis: 'masuk',
-  namaKegiatan: '',
-  waktu: '',
-  nominal: 0,
-  keterangan: '',
-};
+const emptyForm: KeuanganForm = { jenis: 'masuk', namaKegiatan: '', waktu: '', nominal: 0, keterangan: '' };
 
 export default function KeuanganPage() {
+  const readOnly = useReadOnly();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -49,12 +39,8 @@ export default function KeuanganPage() {
       const { data, error } = await supabase.from('keuangan').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data.map((r) => ({
-        id: r.id,
-        jenis: r.jenis as 'masuk' | 'keluar',
-        namaKegiatan: r.nama_kegiatan,
-        waktu: r.waktu,
-        nominal: Number(r.nominal),
-        keterangan: r.keterangan,
+        id: r.id, jenis: r.jenis as 'masuk' | 'keluar', namaKegiatan: r.nama_kegiatan,
+        waktu: r.waktu, nominal: Number(r.nominal), keterangan: r.keterangan,
       }));
     },
   });
@@ -147,43 +133,49 @@ export default function KeuanganPage() {
                     <p className="text-xs text-muted-foreground mt-1">{item.waktu}</p>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
+      {!readOnly && (
+        <>
+          <button onClick={openCreate} className="fab-button active:scale-95 transition-transform"><Plus size={24} /></button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Keuangan' : 'Tambah Keuangan'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>Jenis</Label>
-              <Select value={form.jenis} onValueChange={(v) => setForm({ ...form, jenis: v as 'masuk' | 'keluar' })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="masuk">Pemasukan</SelectItem>
-                  <SelectItem value="keluar">Pengeluaran</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>Nama Kegiatan</Label><Input value={form.namaKegiatan} onChange={(e) => setForm({ ...form, namaKegiatan: e.target.value })} /></div>
-            <div><Label>Waktu</Label><Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} /></div>
-            <div><Label>Nominal (Rp)</Label><Input type="number" value={form.nominal || ''} onChange={(e) => setForm({ ...form, nominal: Number(e.target.value) })} /></div>
-            <div><Label>Keterangan</Label><Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} /></div>
-            <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
-              {editId ? 'Simpan Perubahan' : 'Tambah Data'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
+              <DialogHeader><DialogTitle>{editId ? 'Edit Keuangan' : 'Tambah Keuangan'}</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div>
+                  <Label>Jenis</Label>
+                  <Select value={form.jenis} onValueChange={(v) => setForm({ ...form, jenis: v as 'masuk' | 'keluar' })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="masuk">Pemasukan</SelectItem>
+                      <SelectItem value="keluar">Pengeluaran</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Nama Kegiatan</Label><Input value={form.namaKegiatan} onChange={(e) => setForm({ ...form, namaKegiatan: e.target.value })} /></div>
+                <div><Label>Waktu</Label><Input type="date" value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} /></div>
+                <div><Label>Nominal (Rp)</Label><Input type="number" value={form.nominal || ''} onChange={(e) => setForm({ ...form, nominal: Number(e.target.value) })} /></div>
+                <div><Label>Keterangan</Label><Textarea value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} /></div>
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                  {editId ? 'Simpan Perubahan' : 'Tambah Data'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </AppLayout>
   );
 }

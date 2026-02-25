@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Users, UserCheck, Building2, BookOpen } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { motion } from 'framer-motion';
+import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 const menuItems = [
   { to: '/data-pc/pengurus', icon: UserCheck, label: 'Data Pengurus', desc: 'Kelola data pengurus organisasi' },
@@ -11,6 +12,9 @@ const menuItems = [
 ];
 
 export default function DataPCPage() {
+  const readOnly = useReadOnly();
+  const prefix = readOnly ? '/view' : '';
+
   return (
     <AppLayout title="Data PC">
       <div className="space-y-3">
@@ -21,13 +25,13 @@ export default function DataPCPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08, duration: 0.25 }}
           >
-            <Link to={item.to} className="stat-card flex items-center gap-4 active:scale-[0.98] transition-transform">
+            <Link to={`${prefix}${item.to}`} className="stat-card flex items-center gap-4 active:scale-[0.98] transition-transform">
               <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <item.icon size={24} />
               </div>
               <div>
                 <p className="font-semibold text-sm">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.desc}</p>
+                <p className="text-xs text-muted-foreground">{readOnly ? 'Lihat data' : item.desc}</p>
               </div>
             </Link>
           </motion.div>
