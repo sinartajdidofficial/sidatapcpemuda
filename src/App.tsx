@@ -11,6 +11,7 @@ import DataPCPage from "./pages/DataPCPage";
 import PengurusPage from "./pages/PengurusPage";
 import AnggotaPage from "./pages/AnggotaPage";
 import PJPage from "./pages/PJPage";
+import NotulensiPage from "./pages/NotulensiPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/data-pc/pengurus" element={<PengurusPage />} />
           <Route path="/data-pc/anggota" element={<AnggotaPage />} />
           <Route path="/data-pc/pj" element={<PJPage />} />
+          <Route path="/data-pc/notulensi" element={<NotulensiPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
