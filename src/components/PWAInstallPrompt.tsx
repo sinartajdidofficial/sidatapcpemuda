@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -11,9 +12,12 @@ interface BeforeInstallPromptEvent extends Event {
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
+  const location = useLocation();
+  const isViewMode = location.pathname.startsWith('/view');
+  const storageKey = isViewMode ? 'pwa-dismissed-view' : 'pwa-dismissed-admin';
 
   useEffect(() => {
-    const dismissed = localStorage.getItem('pwa-dismissed');
+    const dismissed = localStorage.getItem(storageKey);
     if (dismissed) return;
 
     const handler = (e: Event) => {
@@ -24,7 +28,7 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, [storageKey]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -36,8 +40,11 @@ export default function PWAInstallPrompt() {
 
   const handleDismiss = () => {
     setShow(false);
-    localStorage.setItem('pwa-dismissed', 'true');
+    localStorage.setItem(storageKey, 'true');
   };
+
+  const appName = isViewMode ? 'Pemuda Persis Cibatu' : 'Pemuda Persis Cibatu - Admin';
+  const appDesc = isViewMode ? 'Install untuk akses data lebih cepat' : 'Install panel admin untuk akses cepat';
 
   return (
     <AnimatePresence>
@@ -55,8 +62,8 @@ export default function PWAInstallPrompt() {
           <div className="flex items-center gap-4">
             <img src="/logo-192.png" alt="Logo Pemuda Persis" className="w-14 h-14 rounded-xl" />
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-foreground text-sm">Pemuda Persis Cibatu</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Install aplikasi untuk akses lebih cepat</p>
+              <h3 className="font-bold text-foreground text-sm">{appName}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{appDesc}</p>
             </div>
           </div>
           <Button onClick={handleInstall} className="w-full mt-3 gap-2" size="sm">

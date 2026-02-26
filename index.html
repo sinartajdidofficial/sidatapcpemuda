@@ -6,12 +6,15 @@
     <title>Sistem Administrasi - PC Pemuda Persis Cibatu</title>
     <meta name="description" content="Sistem Administrasi PC Pemuda Persis Cibatu" />
     <meta name="author" content="Lovable" />
-    <link rel="manifest" href="/manifest.json" />
+    <link id="manifest-link" rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#16a34a" />
     <link rel="apple-touch-icon" href="/logo-192.png" />
     <script>
+      // Set manifest based on route
+      var isView = window.location.pathname.startsWith('/view');
+      document.getElementById('manifest-link').href = isView ? '/manifest-view.json' : '/manifest.json';
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        window.addEventListener('load', function() { navigator.serviceWorker.register('/sw.js'); });
       }
     </script>
 
