@@ -6,6 +6,14 @@
     <title>Sistem Administrasi - PC Pemuda Persis Cibatu</title>
     <meta name="description" content="Sistem Administrasi PC Pemuda Persis Cibatu" />
     <meta name="author" content="Lovable" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#16a34a" />
+    <link rel="apple-touch-icon" href="/logo-192.png" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+      }
+    </script>
 
     <!-- TODO: Update og:title to match your application name -->
     <meta property="og:title" content="Lovable App" />
