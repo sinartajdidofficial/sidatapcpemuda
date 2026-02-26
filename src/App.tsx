@@ -14,6 +14,7 @@ import AnggotaPage from "./pages/AnggotaPage";
 import PJPage from "./pages/PJPage";
 import NotulensiPage from "./pages/NotulensiPage";
 import NotFound from "./pages/NotFound";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/view/data-pc/notulensi" element={<NotulensiPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <PWAInstallPrompt />
         </ReadOnlyWrapper>
       </BrowserRouter>
     </TooltipProvider>
