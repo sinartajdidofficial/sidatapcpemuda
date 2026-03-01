@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, FileDown, Trash2, Edit, Mail, MailOpen, Loader2 } from 'lucide-react';
+import { Plus, FileDown, Trash2, Edit, Mail, MailOpen, Loader2, Calendar, User, Hash } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,8 +12,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useReadOnly } from '@/contexts/ReadOnlyContext';
+
+interface SuratItem {
+  id: string;
+  jenis: 'masuk' | 'keluar';
+  nama: string;
+  nomor: string;
+  waktu: string;
+  pengirim: string;
+  penerima: string;
+  keterangan: string;
+}
 
 interface SuratForm {
   jenis: 'masuk' | 'keluar';
@@ -34,13 +46,14 @@ export default function SuratPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SuratForm>(emptyForm);
   const [filter, setFilter] = useState<'semua' | 'masuk' | 'keluar'>('semua');
+  const [viewSurat, setViewSurat] = useState<SuratItem | null>(null);
 
   const { data: suratList = [], isLoading } = useQuery({
     queryKey: ['surat'],
     queryFn: async () => {
       const { data, error } = await supabase.from('surat').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data.map((r) => ({
+      return data.map((r): SuratItem => ({
         id: r.id, jenis: r.jenis as 'masuk' | 'keluar', nama: r.nama, nomor: r.nomor,
         waktu: r.waktu, pengirim: r.pengirim, penerima: r.penerima, keterangan: r.keterangan,
       }));
@@ -74,7 +87,7 @@ export default function SuratPage() {
   const filtered = filter === 'semua' ? suratList : suratList.filter((s) => s.jenis === filter);
 
   function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
-  function openEdit(surat: typeof suratList[0]) {
+  function openEdit(surat: SuratItem) {
     setEditId(surat.id);
     setForm({ jenis: surat.jenis, nama: surat.nama, nomor: surat.nomor, waktu: surat.waktu, pengirim: surat.pengirim, penerima: surat.penerima, keterangan: surat.keterangan });
     setOpen(true);
@@ -88,6 +101,16 @@ export default function SuratPage() {
     ]);
     const title = 'Data Surat - PC Pemuda Persis Cibatu';
     type === 'pdf' ? exportToPdf(title, headers, rows) : exportToExcel(title, headers, rows);
+  }
+
+  function formatDate(dateStr: string) {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
   }
 
   return (
@@ -120,23 +143,46 @@ export default function SuratPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((surat) => (
-            <div key={surat.id} className="stat-card">
-              <div className="flex items-start justify-between">
-                <div className="flex gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${surat.jenis === 'masuk' ? 'bg-info text-info-foreground' : 'bg-warning text-warning-foreground'}`}>
+          {filtered.map((surat, index) => (
+            <div
+              key={surat.id}
+              className="stat-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98]"
+              onClick={() => setViewSurat(surat)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${surat.jenis === 'masuk' ? 'bg-info/15 text-info' : 'bg-warning/15 text-warning'}`}>
                     {surat.jenis === 'masuk' ? <MailOpen size={18} /> : <Mail size={18} />}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{surat.nama}</p>
-                    <p className="text-xs text-muted-foreground">{surat.nomor}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{surat.waktu}</p>
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${surat.jenis === 'masuk' ? 'border-info/40 text-info' : 'border-warning/40 text-warning'}`}>
+                    {surat.jenis === 'masuk' ? 'Masuk' : 'Keluar'}
+                  </Badge>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground leading-tight">{surat.nama}</p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Hash size={11} className="text-muted-foreground shrink-0" />
+                    <p className="text-xs text-muted-foreground truncate">{surat.nomor}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Calendar size={11} className="text-muted-foreground shrink-0" />
+                    <p className="text-xs text-muted-foreground">{formatDate(surat.waktu)}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <User size={11} className="text-muted-foreground shrink-0" />
+                    <p className="text-xs text-muted-foreground truncate">
+                      {surat.jenis === 'masuk' ? `Dari: ${surat.pengirim}` : `Kepada: ${surat.penerima}`}
+                    </p>
                   </div>
                 </div>
                 {!readOnly && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(surat)}><Edit size={14} /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(surat.id)}><Trash2 size={14} /></Button>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(surat); }}>
+                      <Edit size={13} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(surat.id); }}>
+                      <Trash2 size={13} />
+                    </Button>
                   </div>
                 )}
               </div>
@@ -144,6 +190,47 @@ export default function SuratPage() {
           ))}
         </div>
       )}
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewSurat} onOpenChange={(o) => { if (!o) setViewSurat(null); }}>
+        <DialogContent className="max-w-[95vw] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${viewSurat?.jenis === 'masuk' ? 'bg-info/15 text-info' : 'bg-warning/15 text-warning'}`}>
+                {viewSurat?.jenis === 'masuk' ? <MailOpen size={16} /> : <Mail size={16} />}
+              </div>
+              Detail Surat
+            </DialogTitle>
+          </DialogHeader>
+          {viewSurat && (
+            <div className="space-y-3 mt-1">
+              <Badge className={`${viewSurat.jenis === 'masuk' ? 'bg-info/15 text-info border-info/30' : 'bg-warning/15 text-warning border-warning/30'}`} variant="outline">
+                Surat {viewSurat.jenis === 'masuk' ? 'Masuk' : 'Keluar'}
+              </Badge>
+
+              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+                <DetailRow label="Nama Surat" value={viewSurat.nama} />
+                <DetailRow label="Nomor Surat" value={viewSurat.nomor} />
+                <DetailRow label="Tanggal" value={formatDate(viewSurat.waktu)} />
+                <DetailRow label="Pengirim" value={viewSurat.pengirim} />
+                <DetailRow label="Penerima" value={viewSurat.penerima} />
+                {viewSurat.keterangan && <DetailRow label="Keterangan" value={viewSurat.keterangan} />}
+              </div>
+
+              {!readOnly && (
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" className="flex-1" onClick={() => { setViewSurat(null); openEdit(viewSurat); }}>
+                    <Edit size={14} className="mr-1.5" /> Edit
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => { deleteMutation.mutate(viewSurat.id); setViewSurat(null); }}>
+                    <Trash2 size={14} className="mr-1.5" /> Hapus
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {!readOnly && (
         <>
@@ -179,5 +266,14 @@ export default function SuratPage() {
         </>
       )}
     </AppLayout>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-sm text-foreground">{value || '-'}</span>
+    </div>
   );
 }
