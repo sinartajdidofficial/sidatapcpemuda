@@ -50,6 +50,24 @@ export type Database = {
         }
         Relationships: []
       }
+      kepengurusan: {
+        Row: {
+          created_at: string
+          id: string
+          nama: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nama: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nama?: string
+        }
+        Relationships: []
+      }
       keuangan: {
         Row: {
           created_at: string
@@ -117,6 +135,7 @@ export type Database = {
           bidang_utama: string
           created_at: string
           id: string
+          kepengurusan_id: string | null
           nama: string
           no_whatsapp: string
           pendidikan_terakhir: string
@@ -129,6 +148,7 @@ export type Database = {
           bidang_utama?: string
           created_at?: string
           id?: string
+          kepengurusan_id?: string | null
           nama: string
           no_whatsapp?: string
           pendidikan_terakhir?: string
@@ -141,13 +161,22 @@ export type Database = {
           bidang_utama?: string
           created_at?: string
           id?: string
+          kepengurusan_id?: string | null
           nama?: string
           no_whatsapp?: string
           pendidikan_terakhir?: string
           tanggal_lahir?: string
           tempat_lahir?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pengurus_kepengurusan_id_fkey"
+            columns: ["kepengurusan_id"]
+            isOneToOne: false
+            referencedRelation: "kepengurusan"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pj: {
         Row: {

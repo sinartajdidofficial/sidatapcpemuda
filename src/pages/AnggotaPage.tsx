@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit, Users, Loader2, ArrowLeft, FileDown } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, Loader2, ArrowLeft, FileDown, Phone, MapPin, GraduationCap, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,9 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
 import { useReadOnly } from '@/contexts/ReadOnlyContext';
+
+interface AnggotaItem {
+  id: string; nama: string; tempat_lahir: string; tanggal_lahir: string;
+  alamat: string; pendidikan_terakhir: string; no_whatsapp: string; tahun_masuk: string;
+}
 
 interface Form {
   nama: string; tempat_lahir: string; tanggal_lahir: string;
@@ -27,13 +33,14 @@ export default function AnggotaPage() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
+  const [viewItem, setViewItem] = useState<AnggotaItem | null>(null);
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['anggota'],
     queryFn: async () => {
       const { data, error } = await supabase.from('anggota').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as AnggotaItem[];
     },
   });
 
@@ -59,9 +66,9 @@ export default function AnggotaPage() {
   });
 
   function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
-  function openEdit(item: typeof list[0]) {
+  function openEdit(item: AnggotaItem) {
     setEditId(item.id);
-    setForm({ nama: item.nama, tempat_lahir: item.tempat_lahir, tanggal_lahir: item.tanggal_lahir, alamat: item.alamat, pendidikan_terakhir: item.pendidikan_terakhir, no_whatsapp: item.no_whatsapp, tahun_masuk: (item as any).tahun_masuk || '' });
+    setForm({ nama: item.nama, tempat_lahir: item.tempat_lahir, tanggal_lahir: item.tanggal_lahir, alamat: item.alamat, pendidikan_terakhir: item.pendidikan_terakhir, no_whatsapp: item.no_whatsapp, tahun_masuk: item.tahun_masuk || '' });
     setOpen(true);
   }
   function handleSave() { if (!form.nama) return; saveMutation.mutate(); }
@@ -69,7 +76,7 @@ export default function AnggotaPage() {
   function handleExport(type: 'pdf' | 'excel') {
     const headers = ['No', 'Nama', 'Tahun Masuk', 'Tempat Lahir', 'Tgl Lahir', 'Alamat', 'Pendidikan', 'No. WA'];
     const rows = list.map((item, i) => [
-      String(i + 1), item.nama, (item as any).tahun_masuk || '-',
+      String(i + 1), item.nama, item.tahun_masuk || '-',
       item.tempat_lahir, item.tanggal_lahir, item.alamat, item.pendidikan_terakhir, item.no_whatsapp,
     ]);
     if (type === 'pdf') exportToPdf('Data Anggota', headers, rows);
@@ -104,18 +111,29 @@ export default function AnggotaPage() {
       ) : (
         <div className="space-y-3">
           {list.map((item) => (
-            <div key={item.id} className="stat-card">
-              <div className="flex items-start justify-between">
+            <div
+              key={item.id}
+              className="stat-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98]"
+              onClick={() => setViewItem(item)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold text-sm">
+                  {item.nama.charAt(0).toUpperCase()}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{item.nama}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{item.tempat_lahir}{item.tanggal_lahir ? `, ${item.tanggal_lahir}` : ''}</p>
-                  {(item as any).tahun_masuk && <p className="text-xs text-muted-foreground">Tahun Masuk: {(item as any).tahun_masuk}</p>}
-                  {item.no_whatsapp && <p className="text-xs text-muted-foreground">WA: {item.no_whatsapp}</p>}
+                  <p className="font-semibold text-sm text-foreground truncate">{item.nama}</p>
+                  {item.tahun_masuk && (
+                    <Badge variant="outline" className="text-[10px] mt-1 border-primary/30 text-primary">Masuk {item.tahun_masuk}</Badge>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <MapPin size={11} className="text-muted-foreground shrink-0" />
+                    <p className="text-xs text-muted-foreground truncate">{item.tempat_lahir || '-'}</p>
+                  </div>
                 </div>
                 {!readOnly && (
-                  <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit size={13} /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(item.id); }}><Trash2 size={13} /></Button>
                   </div>
                 )}
               </div>
@@ -123,6 +141,43 @@ export default function AnggotaPage() {
           ))}
         </div>
       )}
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewItem(null); }}>
+        <DialogContent className="max-w-[95vw] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                {viewItem?.nama.charAt(0).toUpperCase()}
+              </div>
+              Detail Anggota
+            </DialogTitle>
+          </DialogHeader>
+          {viewItem && (
+            <div className="space-y-3 mt-1">
+              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+                <DetailRow label="Nama" value={viewItem.nama} />
+                <DetailRow label="Tahun Masuk" value={viewItem.tahun_masuk} />
+                <DetailRow label="Tempat Lahir" value={viewItem.tempat_lahir} />
+                <DetailRow label="Tanggal Lahir" value={viewItem.tanggal_lahir} />
+                <DetailRow label="Alamat" value={viewItem.alamat} />
+                <DetailRow label="Pendidikan Terakhir" value={viewItem.pendidikan_terakhir} />
+                <DetailRow label="No. WhatsApp" value={viewItem.no_whatsapp} />
+              </div>
+              {!readOnly && (
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" className="flex-1" onClick={() => { setViewItem(null); openEdit(viewItem); }}>
+                    <Edit size={14} className="mr-1.5" /> Edit
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => { deleteMutation.mutate(viewItem.id); setViewItem(null); }}>
+                    <Trash2 size={14} className="mr-1.5" /> Hapus
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {!readOnly && (
         <>
@@ -158,5 +213,14 @@ export default function AnggotaPage() {
         </>
       )}
     </AppLayout>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-sm text-foreground">{value || '-'}</span>
+    </div>
   );
 }
