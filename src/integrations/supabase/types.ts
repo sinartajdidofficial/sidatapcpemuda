@@ -22,6 +22,7 @@ export type Database = {
           nama: string
           no_whatsapp: string
           pendidikan_terakhir: string
+          status: string
           tahun_masuk: string
           tanggal_lahir: string
           tempat_lahir: string
@@ -33,6 +34,7 @@ export type Database = {
           nama: string
           no_whatsapp?: string
           pendidikan_terakhir?: string
+          status?: string
           tahun_masuk?: string
           tanggal_lahir?: string
           tempat_lahir?: string
@@ -44,6 +46,7 @@ export type Database = {
           nama?: string
           no_whatsapp?: string
           pendidikan_terakhir?: string
+          status?: string
           tahun_masuk?: string
           tanggal_lahir?: string
           tempat_lahir?: string
