@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit, Users, Loader2, ArrowLeft, FileDown, Phone, MapPin, GraduationCap, Calendar } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, Loader2, ArrowLeft, FileDown, Phone, MapPin, GraduationCap, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +17,7 @@ import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
 interface AnggotaItem {
   id: string; nama: string; tempat_lahir: string; tanggal_lahir: string;
-  alamat: string; pendidikan_terakhir: string; no_whatsapp: string; tahun_masuk: string;
+  alamat: string; pendidikan_terakhir: string; no_whatsapp: string; tahun_masuk: string; status: string;
 }
 
 interface Form {
@@ -34,6 +34,7 @@ export default function AnggotaPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
   const [viewItem, setViewItem] = useState<AnggotaItem | null>(null);
+  const [tab, setTab] = useState<'verified' | 'pending'>('verified');
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['anggota'],
@@ -42,6 +43,18 @@ export default function AnggotaPage() {
       if (error) throw error;
       return data as AnggotaItem[];
     },
+  });
+
+  const filtered = list.filter((item) => (item.status || 'verified') === tab);
+  const pendingCount = list.filter((item) => item.status === 'pending').length;
+
+  const verifyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('anggota').update({ status: 'verified' }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['anggota'] }); toast.success('Anggota berhasil diverifikasi'); },
+    onError: (e) => toast.error(e.message),
   });
 
   const saveMutation = useMutation({
@@ -102,15 +115,37 @@ export default function AnggotaPage() {
         )}
       </div>
 
+      {!readOnly && (
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant={tab === 'verified' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setTab('verified')}
+            className="flex-1"
+          >
+            <CheckCircle size={14} className="mr-1" /> Terverifikasi ({list.filter(i => (i.status || 'verified') === 'verified').length})
+          </Button>
+          <Button
+            variant={tab === 'pending' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setTab('pending')}
+            className="flex-1 relative"
+          >
+            <Clock size={14} className="mr-1" /> Pending ({pendingCount})
+            {pendingCount > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse" />}
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-center py-16"><Loader2 className="mx-auto animate-spin text-muted-foreground" /></div>
-      ) : list.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
-          <Users size={48} className="mx-auto mb-3 opacity-30" />Belum ada data anggota
+          <Users size={48} className="mx-auto mb-3 opacity-30" />{tab === 'pending' ? 'Tidak ada pendaftaran menunggu verifikasi' : 'Belum ada data anggota'}
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((item) => (
+          {filtered.map((item) => (
             <div
               key={item.id}
               className="stat-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98]"
@@ -124,6 +159,9 @@ export default function AnggotaPage() {
                   <p className="font-semibold text-sm text-foreground truncate">{item.nama}</p>
                   {item.tahun_masuk && (
                     <Badge variant="outline" className="text-[10px] mt-1 border-primary/30 text-primary">Masuk {item.tahun_masuk}</Badge>
+                  )}
+                  {item.status === 'pending' && (
+                    <Badge variant="secondary" className="text-[10px] mt-1">Menunggu Verifikasi</Badge>
                   )}
                   <div className="flex items-center gap-1.5 mt-1">
                     <MapPin size={11} className="text-muted-foreground shrink-0" />
@@ -166,6 +204,11 @@ export default function AnggotaPage() {
               </div>
               {!readOnly && (
                 <div className="flex gap-2 pt-1">
+                  {viewItem.status === 'pending' && (
+                    <Button className="flex-1" onClick={() => { verifyMutation.mutate(viewItem.id); setViewItem(null); }}>
+                      <CheckCircle size={14} className="mr-1.5" /> Verifikasi
+                    </Button>
+                  )}
                   <Button variant="outline" className="flex-1" onClick={() => { setViewItem(null); openEdit(viewItem); }}>
                     <Edit size={14} className="mr-1.5" /> Edit
                   </Button>

@@ -1,0 +1,1 @@
+ALTER TABLE public.anggota ADD COLUMN status text NOT NULL DEFAULT 'verified';
