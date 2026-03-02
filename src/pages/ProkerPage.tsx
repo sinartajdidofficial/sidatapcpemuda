@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, FileDown, Trash2, Edit, ClipboardList, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { Plus, FileDown, Trash2, Edit, ClipboardList, CheckCircle, Clock, Loader2, Calendar, MapPin, Target } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +20,18 @@ const bidangOptions: BidangGarapan[] = [
   'Pendidikan', 'Dakwah', 'Kaderisasi', "Jam'iyyah", 'Infokom', 'Ekonomi Sosial', 'Seni & Olahraga', 'HLO',
 ];
 
+interface ProkerItem {
+  id: string;
+  nama: string;
+  bidang: BidangGarapan;
+  waktuPelaksanaan: string;
+  tujuan: string;
+  tempat: string;
+  realisasi: 'Terlaksana' | 'Belum Terlaksana';
+  kendala: string;
+  solusi: string;
+}
+
 interface ProkerForm {
   nama: string;
   bidang: BidangGarapan;
@@ -35,19 +47,30 @@ const emptyForm: ProkerForm = {
   nama: '', bidang: 'Pendidikan', waktuPelaksanaan: '', tujuan: '', tempat: '', realisasi: 'Belum Terlaksana', kendala: '', solusi: '',
 };
 
+function formatDate(dateStr: string) {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function ProkerPage() {
   const readOnly = useReadOnly();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ProkerForm>(emptyForm);
+  const [viewItem, setViewItem] = useState<ProkerItem | null>(null);
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['program_kerja'],
     queryFn: async () => {
       const { data, error } = await supabase.from('program_kerja').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data.map((r) => ({
+      return data.map((r): ProkerItem => ({
         id: r.id, nama: r.nama, bidang: r.bidang as BidangGarapan,
         waktuPelaksanaan: r.waktu_pelaksanaan, tujuan: r.tujuan, tempat: r.tempat,
         realisasi: r.realisasi as 'Terlaksana' | 'Belum Terlaksana', kendala: r.kendala, solusi: r.solusi,
@@ -80,7 +103,7 @@ export default function ProkerPage() {
   });
 
   function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
-  function openEdit(item: typeof list[0]) {
+  function openEdit(item: ProkerItem) {
     setEditId(item.id);
     const { id, ...rest } = item;
     setForm(rest);
@@ -97,8 +120,29 @@ export default function ProkerPage() {
     type === 'pdf' ? exportToPdf(title, headers, rows) : exportToExcel(title, headers, rows);
   }
 
+  const terlaksana = list.filter(p => p.realisasi === 'Terlaksana').length;
+  const belum = list.filter(p => p.realisasi === 'Belum Terlaksana').length;
+
   return (
     <AppLayout title="Program Kerja">
+      {/* Summary */}
+      {list.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="stat-card text-center p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
+            <p className="text-lg font-bold text-foreground mt-0.5">{list.length}</p>
+          </div>
+          <div className="stat-card text-center p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Terlaksana</p>
+            <p className="text-lg font-bold text-primary mt-0.5">{terlaksana}</p>
+          </div>
+          <div className="stat-card text-center p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Belum</p>
+            <p className="text-lg font-bold text-destructive mt-0.5">{belum}</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">{list.length} program</p>
         <DropdownMenu>
@@ -122,23 +166,40 @@ export default function ProkerPage() {
       ) : (
         <div className="space-y-3">
           {list.map((item) => (
-            <div key={item.id} className="stat-card">
-              <div className="flex items-start justify-between">
+            <div
+              key={item.id}
+              className="stat-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98]"
+              onClick={() => setViewItem(item)}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.realisasi === 'Terlaksana' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                  {item.realisasi === 'Terlaksana' ? <CheckCircle size={18} /> : <Clock size={18} />}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {item.realisasi === 'Terlaksana' ? <CheckCircle size={16} className="text-success shrink-0" /> : <Clock size={16} className="text-warning shrink-0" />}
-                    <p className="font-semibold text-sm truncate">{item.nama}</p>
-                  </div>
-                  <div className="flex gap-2 flex-wrap mt-2">
+                  <p className="font-semibold text-sm text-foreground leading-tight">{item.nama}</p>
+                  <div className="flex gap-2 flex-wrap mt-1.5">
                     <Badge variant="secondary" className="text-[10px]">{item.bidang}</Badge>
                     <Badge variant={item.realisasi === 'Terlaksana' ? 'default' : 'outline'} className="text-[10px]">{item.realisasi}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{item.tempat} • {item.waktuPelaksanaan}</p>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {item.tempat && (
+                      <div className="flex items-center gap-1">
+                        <MapPin size={11} className="text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground truncate">{item.tempat}</p>
+                      </div>
+                    )}
+                    {item.waktuPelaksanaan && (
+                      <div className="flex items-center gap-1">
+                        <Calendar size={11} className="text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground">{formatDate(item.waktuPelaksanaan)}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {!readOnly && (
-                  <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit size={14} /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 size={14} /></Button>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit size={13} /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(item.id); }}><Trash2 size={13} /></Button>
                   </div>
                 )}
               </div>
@@ -146,6 +207,50 @@ export default function ProkerPage() {
           ))}
         </div>
       )}
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewItem(null); }}>
+        <DialogContent className="max-w-[95vw] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${viewItem?.realisasi === 'Terlaksana' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                {viewItem?.realisasi === 'Terlaksana' ? <CheckCircle size={16} /> : <Clock size={16} />}
+              </div>
+              Detail Program
+            </DialogTitle>
+          </DialogHeader>
+          {viewItem && (
+            <div className="space-y-3 mt-1">
+              <div className="flex gap-2">
+                <Badge variant="secondary">{viewItem.bidang}</Badge>
+                <Badge variant={viewItem.realisasi === 'Terlaksana' ? 'default' : 'outline'}>{viewItem.realisasi}</Badge>
+              </div>
+
+              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+                <DetailRow label="Nama Program" value={viewItem.nama} />
+                <DetailRow label="Bidang" value={viewItem.bidang} />
+                <DetailRow label="Waktu Pelaksanaan" value={formatDate(viewItem.waktuPelaksanaan)} />
+                <DetailRow label="Tempat" value={viewItem.tempat} />
+                <DetailRow label="Tujuan" value={viewItem.tujuan} />
+                <DetailRow label="Realisasi" value={viewItem.realisasi} />
+                {viewItem.kendala && <DetailRow label="Kendala" value={viewItem.kendala} />}
+                {viewItem.solusi && <DetailRow label="Solusi" value={viewItem.solusi} />}
+              </div>
+
+              {!readOnly && (
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" className="flex-1" onClick={() => { setViewItem(null); openEdit(viewItem); }}>
+                    <Edit size={14} className="mr-1.5" /> Edit
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => { deleteMutation.mutate(viewItem.id); setViewItem(null); }}>
+                    <Trash2 size={14} className="mr-1.5" /> Hapus
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {!readOnly && (
         <>
@@ -188,5 +293,14 @@ export default function ProkerPage() {
         </>
       )}
     </AppLayout>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-sm text-foreground">{value || '-'}</span>
+    </div>
   );
 }
