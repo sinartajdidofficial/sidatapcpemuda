@@ -149,7 +149,37 @@ export default function PengurusPage() {
     onError: (e) => toast.error(e.message),
   });
 
-  function openCreate() { setEditId(null); setForm(emptyForm); setOpen(true); }
+  const [nameSuggestions, setNameSuggestions] = useState<PengurusItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  function handleNameChange(value: string) {
+    setForm({ ...form, nama: value });
+    if (!editId && value.length >= 2) {
+      const matches = allPengurus.filter(p => 
+        p.nama.toLowerCase().includes(value.toLowerCase()) && p.kepengurusan_id !== activeCardId
+      );
+      setNameSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  }
+
+  function selectSuggestion(item: PengurusItem) {
+    setForm({
+      nama: item.nama,
+      bidang: item.bidang_utama ? item.bidang_utama : item.bidang,
+      bidang_utama: (item.bidang_utama || '') as BidangUtama,
+      tempat_lahir: item.tempat_lahir,
+      tanggal_lahir: item.tanggal_lahir,
+      alamat: item.alamat,
+      pendidikan_terakhir: item.pendidikan_terakhir,
+      no_whatsapp: item.no_whatsapp,
+    });
+    setShowSuggestions(false);
+  }
+
+  function openCreate() { setEditId(null); setForm(emptyForm); setShowSuggestions(false); setOpen(true); }
   function openEdit(item: PengurusItem) {
     setEditId(item.id);
     const bu = item.bidang_utama || '';
@@ -399,7 +429,20 @@ export default function PengurusPage() {
             <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
               <DialogHeader><DialogTitle>{editId ? 'Edit Pengurus' : 'Tambah Pengurus'}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-2">
-                <div><Label>Nama Pengurus</Label><Input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></div>
+                <div className="relative">
+                  <Label>Nama Pengurus</Label>
+                  <Input value={form.nama} onChange={(e) => handleNameChange(e.target.value)} onFocus={() => { if (nameSuggestions.length > 0 && !editId) setShowSuggestions(true); }} />
+                  {showSuggestions && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                      {nameSuggestions.map(s => (
+                        <button key={s.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors" onClick={() => selectSuggestion(s)}>
+                          <span className="font-medium">{s.nama}</span>
+                          <span className="text-muted-foreground text-xs ml-2">{s.bidang_utama || s.bidang}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div>
                   <Label>Bidang Utama</Label>
                   <Select value={form.bidang_utama || '_none'} onValueChange={(v) => setForm({ ...form, bidang_utama: v === '_none' ? '' : v as BidangUtama })}>
