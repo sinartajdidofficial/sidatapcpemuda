@@ -48,7 +48,7 @@ interface PengurusItem {
 }
 
 interface Kepengurusan {
-  id: string; nama: string; created_at: string;
+  id: string; nama: string; created_at: string; aktif: boolean;
 }
 
 interface Form {
