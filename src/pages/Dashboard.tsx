@@ -52,9 +52,12 @@ export default function Dashboard() {
   });
 
   const { data: pengurusCount = 0 } = useQuery({
-    queryKey: ['pengurus-count'],
+    queryKey: ['pengurus-count-active'],
     queryFn: async () => {
-      const { count, error } = await supabase.from('pengurus').select('*', { count: 'exact', head: true });
+      // Get the latest kepengurusan
+      const { data: latest } = await supabase.from('kepengurusan').select('id').order('created_at', { ascending: false }).limit(1).single();
+      if (!latest) return 0;
+      const { count, error } = await supabase.from('pengurus').select('*', { count: 'exact', head: true }).eq('kepengurusan_id', latest.id);
       if (error) throw error;
       return count ?? 0;
     },
