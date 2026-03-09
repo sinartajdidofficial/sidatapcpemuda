@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
 import { useReadOnly } from '@/contexts/ReadOnlyContext';
@@ -143,42 +144,71 @@ export default function AnggotaPage() {
         <div className="text-center py-16 text-muted-foreground text-sm">
           <Users size={48} className="mx-auto mb-3 opacity-30" />{tab === 'pending' ? 'Tidak ada pendaftaran menunggu verifikasi' : 'Belum ada data anggota'}
         </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((item) => (
-            <div
-              key={item.id}
-              className="stat-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98]"
-              onClick={() => setViewItem(item)}
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold text-sm">
-                  {item.nama.charAt(0).toUpperCase()}
+      ) : (() => {
+        const grouped = filtered.reduce<Record<string, AnggotaItem[]>>((acc, item) => {
+          const year = item.tahun_masuk || 'Tidak Diketahui';
+          if (!acc[year]) acc[year] = [];
+          acc[year].push(item);
+          return acc;
+        }, {});
+        const sortedYears = Object.keys(grouped).sort((a, b) => {
+          if (a === 'Tidak Diketahui') return 1;
+          if (b === 'Tidak Diketahui') return -1;
+          return b.localeCompare(a);
+        });
+        return (
+          <div className="space-y-5">
+            {sortedYears.map((year) => (
+              <div key={year} className="rounded-xl border border-border overflow-hidden">
+                <div className="bg-primary/10 px-4 py-2.5 flex items-center justify-between">
+                  <span className="font-semibold text-sm text-primary">Angkatan {year}</span>
+                  <Badge variant="secondary" className="text-[10px]">{grouped[year].length} anggota</Badge>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground truncate">{item.nama}</p>
-                  {item.tahun_masuk && (
-                    <Badge variant="outline" className="text-[10px] mt-1 border-primary/30 text-primary">Masuk {item.tahun_masuk}</Badge>
-                  )}
-                  {item.status === 'pending' && (
-                    <Badge variant="secondary" className="text-[10px] mt-1">Menunggu Verifikasi</Badge>
-                  )}
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <MapPin size={11} className="text-muted-foreground shrink-0" />
-                    <p className="text-xs text-muted-foreground truncate">{item.tempat_lahir || '-'}</p>
-                  </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="text-xs px-3 w-10">No</TableHead>
+                        <TableHead className="text-xs px-3">Nama</TableHead>
+                        <TableHead className="text-xs px-3">Alamat</TableHead>
+                        <TableHead className="text-xs px-3">No. WA</TableHead>
+                        {!readOnly && <TableHead className="text-xs px-3 w-16 text-center">Aksi</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {grouped[year].map((item, idx) => (
+                        <TableRow
+                          key={item.id}
+                          className="cursor-pointer hover:bg-primary/5 transition-colors"
+                          onClick={() => setViewItem(item)}
+                        >
+                          <TableCell className="text-xs px-3 py-2 text-muted-foreground font-medium">{idx + 1}</TableCell>
+                          <TableCell className="text-xs px-3 py-2 font-medium text-foreground">{item.nama}</TableCell>
+                          <TableCell className="text-xs px-3 py-2 text-muted-foreground">{item.alamat || '-'}</TableCell>
+                          <TableCell className="text-xs px-3 py-2 text-muted-foreground">{item.no_whatsapp || '-'}</TableCell>
+                          {!readOnly && (
+                            <TableCell className="text-xs px-3 py-2 text-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                {item.status === 'pending' && (
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={(e) => { e.stopPropagation(); verifyMutation.mutate(item.id); }}>
+                                    <CheckCircle size={12} />
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit size={12} /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(item.id); }}><Trash2 size={12} /></Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-                {!readOnly && (
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit size={13} /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(item.id); }}><Trash2 size={13} /></Button>
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Detail View Dialog */}
       <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewItem(null); }}>

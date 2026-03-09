@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -164,47 +165,60 @@ export default function ProkerPage() {
           Belum ada program kerja
         </div>
       ) : (
-        <div className="space-y-3">
-          {list.map((item) => (
-            <div
-              key={item.id}
-              className="stat-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98]"
-              onClick={() => setViewItem(item)}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.realisasi === 'Terlaksana' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                  {item.realisasi === 'Terlaksana' ? <CheckCircle size={18} /> : <Clock size={18} />}
+        <div className="space-y-5">
+          {bidangOptions
+            .map((bidang) => ({ bidang, items: list.filter((p) => p.bidang === bidang) }))
+            .filter((g) => g.items.length > 0)
+            .map((group) => {
+              const done = group.items.filter(p => p.realisasi === 'Terlaksana').length;
+              return (
+                <div key={group.bidang} className="rounded-xl border border-border overflow-hidden">
+                  <div className="bg-primary/10 px-4 py-2.5 flex items-center justify-between">
+                    <span className="font-semibold text-sm text-primary">{group.bidang}</span>
+                    <Badge variant="secondary" className="text-[10px]">{done}/{group.items.length} terlaksana</Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30">
+                          <TableHead className="text-xs px-3 w-10">No</TableHead>
+                          <TableHead className="text-xs px-3">Program</TableHead>
+                          <TableHead className="text-xs px-3">Waktu</TableHead>
+                          <TableHead className="text-xs px-3 text-center">Status</TableHead>
+                          {!readOnly && <TableHead className="text-xs px-3 w-16 text-center">Aksi</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.items.map((item, idx) => (
+                          <TableRow
+                            key={item.id}
+                            className="cursor-pointer hover:bg-primary/5 transition-colors"
+                            onClick={() => setViewItem(item)}
+                          >
+                            <TableCell className="text-xs px-3 py-2 text-muted-foreground font-medium">{idx + 1}</TableCell>
+                            <TableCell className="text-xs px-3 py-2 font-medium text-foreground">{item.nama}</TableCell>
+                            <TableCell className="text-xs px-3 py-2 text-muted-foreground">{formatDate(item.waktuPelaksanaan)}</TableCell>
+                            <TableCell className="text-xs px-3 py-2 text-center">
+                              <Badge variant={item.realisasi === 'Terlaksana' ? 'default' : 'outline'} className="text-[10px]">
+                                {item.realisasi === 'Terlaksana' ? '✓' : '—'}
+                              </Badge>
+                            </TableCell>
+                            {!readOnly && (
+                              <TableCell className="text-xs px-3 py-2 text-center">
+                                <div className="flex items-center justify-center gap-0.5">
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit size={12} /></Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(item.id); }}><Trash2 size={12} /></Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground leading-tight">{item.nama}</p>
-                  <div className="flex gap-2 flex-wrap mt-1.5">
-                    <Badge variant="secondary" className="text-[10px]">{item.bidang}</Badge>
-                    <Badge variant={item.realisasi === 'Terlaksana' ? 'default' : 'outline'} className="text-[10px]">{item.realisasi}</Badge>
-                  </div>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    {item.tempat && (
-                      <div className="flex items-center gap-1">
-                        <MapPin size={11} className="text-muted-foreground shrink-0" />
-                        <p className="text-xs text-muted-foreground truncate">{item.tempat}</p>
-                      </div>
-                    )}
-                    {item.waktuPelaksanaan && (
-                      <div className="flex items-center gap-1">
-                        <Calendar size={11} className="text-muted-foreground shrink-0" />
-                        <p className="text-xs text-muted-foreground">{formatDate(item.waktuPelaksanaan)}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {!readOnly && (
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit size={13} /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(item.id); }}><Trash2 size={13} /></Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+              );
+            })}
         </div>
       )}
 
