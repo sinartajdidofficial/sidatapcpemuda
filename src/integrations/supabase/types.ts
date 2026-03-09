@@ -55,16 +55,19 @@ export type Database = {
       }
       kepengurusan: {
         Row: {
+          aktif: boolean
           created_at: string
           id: string
           nama: string
         }
         Insert: {
+          aktif?: boolean
           created_at?: string
           id?: string
           nama: string
         }
         Update: {
+          aktif?: boolean
           created_at?: string
           id?: string
           nama?: string
