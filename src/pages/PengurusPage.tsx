@@ -294,7 +294,7 @@ export default function PengurusPage() {
 
         {!readOnly && (
           <>
-            <button onClick={() => { setEditCardId(null); setCardName(''); setCardDialogOpen(true); }} className="fab-button active:scale-95 transition-transform">
+            <button onClick={() => { setEditCardId(null); setCardName(''); setCardAktif(false); setCardDialogOpen(true); }} className="fab-button active:scale-95 transition-transform">
               <Plus size={24} />
             </button>
 
