@@ -274,8 +274,8 @@ export default function PengurusPage() {
                       {!readOnly && (
                         <>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
-                            e.stopPropagation();
-                            setEditCardId(card.id); setCardName(card.nama); setCardDialogOpen(true);
+                           e.stopPropagation();
+                            setEditCardId(card.id); setCardName(card.nama); setCardAktif(card.aktif); setCardDialogOpen(true);
                           }}><Edit size={13} /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => {
                             e.stopPropagation();
