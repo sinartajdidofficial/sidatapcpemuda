@@ -264,7 +264,10 @@ export default function PengurusPage() {
                       <Users size={22} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-foreground">{card.nama}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm text-foreground">{card.nama}</p>
+                        {card.aktif && <Badge className="text-[10px] bg-success text-success-foreground">Aktif</Badge>}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{count} pengurus</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
