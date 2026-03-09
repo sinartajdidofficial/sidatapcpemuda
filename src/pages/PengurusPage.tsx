@@ -70,6 +70,7 @@ export default function PengurusPage() {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardDialogOpen, setCardDialogOpen] = useState(false);
   const [cardName, setCardName] = useState('');
+  const [cardAktif, setCardAktif] = useState(false);
   const [editCardId, setEditCardId] = useState<string | null>(null);
   const [viewItem, setViewItem] = useState<PengurusItem | null>(null);
 
