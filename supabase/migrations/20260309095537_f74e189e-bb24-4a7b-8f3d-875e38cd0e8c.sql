@@ -1,0 +1,1 @@
+ALTER TABLE public.kepengurusan ADD COLUMN aktif boolean NOT NULL DEFAULT false;

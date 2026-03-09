@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { exportToPdf, exportToExcel } from '@/utils/exportUtils';
@@ -48,7 +49,7 @@ interface PengurusItem {
 }
 
 interface Kepengurusan {
-  id: string; nama: string; created_at: string;
+  id: string; nama: string; created_at: string; aktif: boolean;
 }
 
 interface Form {
@@ -70,6 +71,7 @@ export default function PengurusPage() {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardDialogOpen, setCardDialogOpen] = useState(false);
   const [cardName, setCardName] = useState('');
+  const [cardAktif, setCardAktif] = useState(false);
   const [editCardId, setEditCardId] = useState<string | null>(null);
   const [viewItem, setViewItem] = useState<PengurusItem | null>(null);
 
@@ -101,15 +103,19 @@ export default function PengurusPage() {
   // Card CRUD
   const saveCardMutation = useMutation({
     mutationFn: async () => {
+      // If setting this card as active, deactivate all others first
+      if (cardAktif) {
+        await supabase.from('kepengurusan').update({ aktif: false } as any).neq('id', editCardId || '');
+      }
       if (editCardId) {
-        const { error } = await supabase.from('kepengurusan').update({ nama: cardName }).eq('id', editCardId);
+        const { error } = await supabase.from('kepengurusan').update({ nama: cardName, aktif: cardAktif } as any).eq('id', editCardId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('kepengurusan').insert({ nama: cardName });
+        const { error } = await supabase.from('kepengurusan').insert({ nama: cardName, aktif: cardAktif } as any);
         if (error) throw error;
       }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kepengurusan'] }); setCardDialogOpen(false); setCardName(''); setEditCardId(null); toast.success('Berhasil disimpan'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kepengurusan'] }); qc.invalidateQueries({ queryKey: ['pengurus-count-active'] }); setCardDialogOpen(false); setCardName(''); setCardAktif(false); setEditCardId(null); toast.success('Berhasil disimpan'); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -259,15 +265,18 @@ export default function PengurusPage() {
                       <Users size={22} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-foreground">{card.nama}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm text-foreground">{card.nama}</p>
+                        {card.aktif && <Badge className="text-[10px] bg-success text-success-foreground">Aktif</Badge>}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{count} pengurus</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {!readOnly && (
                         <>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
-                            e.stopPropagation();
-                            setEditCardId(card.id); setCardName(card.nama); setCardDialogOpen(true);
+                           e.stopPropagation();
+                            setEditCardId(card.id); setCardName(card.nama); setCardAktif(card.aktif); setCardDialogOpen(true);
                           }}><Edit size={13} /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => {
                             e.stopPropagation();
@@ -286,7 +295,7 @@ export default function PengurusPage() {
 
         {!readOnly && (
           <>
-            <button onClick={() => { setEditCardId(null); setCardName(''); setCardDialogOpen(true); }} className="fab-button active:scale-95 transition-transform">
+            <button onClick={() => { setEditCardId(null); setCardName(''); setCardAktif(false); setCardDialogOpen(true); }} className="fab-button active:scale-95 transition-transform">
               <Plus size={24} />
             </button>
 
@@ -295,6 +304,11 @@ export default function PengurusPage() {
                 <DialogHeader><DialogTitle>{editCardId ? 'Edit Kepengurusan' : 'Buat Kepengurusan Baru'}</DialogTitle></DialogHeader>
                 <div className="space-y-4 mt-2">
                   <div><Label>Nama Kepengurusan</Label><Input placeholder="cth: Kepengurusan 2024-2026" value={cardName} onChange={(e) => setCardName(e.target.value)} /></div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="card-aktif">Status Aktif</Label>
+                    <Switch id="card-aktif" checked={cardAktif} onCheckedChange={setCardAktif} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Hanya satu kepengurusan yang bisa aktif. Mengaktifkan ini akan menonaktifkan yang lain.</p>
                   <Button className="w-full" onClick={() => { if (!cardName.trim()) return; saveCardMutation.mutate(); }} disabled={saveCardMutation.isPending}>
                     {saveCardMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
                     {editCardId ? 'Simpan' : 'Buat Kepengurusan'}
