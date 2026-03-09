@@ -54,10 +54,9 @@ export default function Dashboard() {
   const { data: pengurusCount = 0 } = useQuery({
     queryKey: ['pengurus-count-active'],
     queryFn: async () => {
-      // Get the latest kepengurusan
-      const { data: latest } = await supabase.from('kepengurusan').select('id').order('created_at', { ascending: false }).limit(1).single();
-      if (!latest) return 0;
-      const { count, error } = await supabase.from('pengurus').select('*', { count: 'exact', head: true }).eq('kepengurusan_id', latest.id);
+      const { data: active } = await supabase.from('kepengurusan').select('id').eq('aktif', true).limit(1).single();
+      if (!active) return 0;
+      const { count, error } = await supabase.from('pengurus').select('*', { count: 'exact', head: true }).eq('kepengurusan_id', active.id);
       if (error) throw error;
       return count ?? 0;
     },
