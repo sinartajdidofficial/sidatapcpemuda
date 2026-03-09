@@ -303,6 +303,11 @@ export default function PengurusPage() {
                 <DialogHeader><DialogTitle>{editCardId ? 'Edit Kepengurusan' : 'Buat Kepengurusan Baru'}</DialogTitle></DialogHeader>
                 <div className="space-y-4 mt-2">
                   <div><Label>Nama Kepengurusan</Label><Input placeholder="cth: Kepengurusan 2024-2026" value={cardName} onChange={(e) => setCardName(e.target.value)} /></div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="card-aktif">Status Aktif</Label>
+                    <Switch id="card-aktif" checked={cardAktif} onCheckedChange={setCardAktif} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Hanya satu kepengurusan yang bisa aktif. Mengaktifkan ini akan menonaktifkan yang lain.</p>
                   <Button className="w-full" onClick={() => { if (!cardName.trim()) return; saveCardMutation.mutate(); }} disabled={saveCardMutation.isPending}>
                     {saveCardMutation.isPending && <Loader2 className="animate-spin mr-2" size={16} />}
                     {editCardId ? 'Simpan' : 'Buat Kepengurusan'}
