@@ -102,15 +102,19 @@ export default function PengurusPage() {
   // Card CRUD
   const saveCardMutation = useMutation({
     mutationFn: async () => {
+      // If setting this card as active, deactivate all others first
+      if (cardAktif) {
+        await supabase.from('kepengurusan').update({ aktif: false } as any).neq('id', editCardId || '');
+      }
       if (editCardId) {
-        const { error } = await supabase.from('kepengurusan').update({ nama: cardName }).eq('id', editCardId);
+        const { error } = await supabase.from('kepengurusan').update({ nama: cardName, aktif: cardAktif } as any).eq('id', editCardId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('kepengurusan').insert({ nama: cardName });
+        const { error } = await supabase.from('kepengurusan').insert({ nama: cardName, aktif: cardAktif } as any);
         if (error) throw error;
       }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kepengurusan'] }); setCardDialogOpen(false); setCardName(''); setEditCardId(null); toast.success('Berhasil disimpan'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kepengurusan'] }); qc.invalidateQueries({ queryKey: ['pengurus-count-active'] }); setCardDialogOpen(false); setCardName(''); setCardAktif(false); setEditCardId(null); toast.success('Berhasil disimpan'); },
     onError: (e) => toast.error(e.message),
   });
 
