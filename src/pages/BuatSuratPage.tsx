@@ -202,7 +202,7 @@ export default function BuatSuratPage() {
   }
 
   return (
-    <AppLayout title="Buat Surat" backTo="/surat">
+    <AppLayout title="Buat Surat" backTo={`${readOnly ? '/view' : ''}/surat`}>
       {isLoading ? (
         <div className="text-center py-16"><Loader2 className="mx-auto animate-spin text-muted-foreground" /></div>
       ) : drafts.length === 0 ? (
