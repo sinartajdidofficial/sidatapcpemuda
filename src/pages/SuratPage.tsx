@@ -116,6 +116,20 @@ export default function SuratPage() {
 
   return (
     <AppLayout title="Master Surat">
+      {/* Sub Menu: Buat Surat */}
+      <Link
+        to={`${readOnly ? '/view' : ''}/surat/buat`}
+        className="stat-card flex items-center gap-3 mb-4 border-primary/20 hover:border-primary/40 hover:shadow-md transition-all active:scale-[0.98]"
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <FileText size={18} />
+        </div>
+        <div className="flex-1">
+          <p className="font-semibold text-sm text-foreground">Buat Surat</p>
+          <p className="text-xs text-muted-foreground">{readOnly ? 'Lihat draft surat' : 'Buat dan kelola draft surat resmi'}</p>
+        </div>
+      </Link>
+
       <div className="flex items-center justify-between mb-4">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
           <TabsList className="h-9">
