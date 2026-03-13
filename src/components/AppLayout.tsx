@@ -1,5 +1,5 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Mail, Wallet, ClipboardList, Database } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Mail, Wallet, ClipboardList, Database, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useReadOnly } from '@/contexts/ReadOnlyContext';
 
