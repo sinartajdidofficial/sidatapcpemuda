@@ -11,12 +11,14 @@ const navItems = [
   { to: '/data-pc', icon: Database, label: 'Data PC' },
 ];
 
-interface AppLayoutProps {
+export interface AppLayoutProps {
   children: React.ReactNode;
   title?: string;
+  backTo?: string;
 }
 
-export default function AppLayout({ children, title = 'Dashboard' }: AppLayoutProps) {
+export default function AppLayout({ children, title = 'Dashboard', backTo }: AppLayoutProps) {
+  const navigate = useNavigate();
   const location = useLocation();
   const readOnly = useReadOnly();
   const prefix = readOnly ? '/view' : '';
