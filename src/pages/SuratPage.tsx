@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, FileDown, Trash2, Edit, Mail, MailOpen, Loader2, Calendar, User, Hash } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, FileDown, Trash2, Edit, Mail, MailOpen, Loader2, Calendar, User, Hash, FileText } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
