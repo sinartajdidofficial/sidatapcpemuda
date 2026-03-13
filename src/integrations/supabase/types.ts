@@ -305,17 +305,23 @@ export type Database = {
           email: string
           id: string
           isi_hari_tanggal: string
+          isi_surat: string
           isi_tempat: string
           isi_waktu: string
+          kepada: string
           ketua: string
           kop_surat: string
           lampiran: string
           logo_url: string
+          niat_ketua: string
+          niat_sekretaris: string
           no_surat: string
           perihal: string
           qr_data: string
           sekretaris: string
           tanggal_surat: string
+          ttd_ketua_url: string
+          ttd_sekretaris_url: string
         }
         Insert: {
           alamat?: string
@@ -323,17 +329,23 @@ export type Database = {
           email?: string
           id?: string
           isi_hari_tanggal?: string
+          isi_surat?: string
           isi_tempat?: string
           isi_waktu?: string
+          kepada?: string
           ketua?: string
           kop_surat?: string
           lampiran?: string
           logo_url?: string
+          niat_ketua?: string
+          niat_sekretaris?: string
           no_surat?: string
           perihal?: string
           qr_data?: string
           sekretaris?: string
           tanggal_surat?: string
+          ttd_ketua_url?: string
+          ttd_sekretaris_url?: string
         }
         Update: {
           alamat?: string
@@ -341,17 +353,23 @@ export type Database = {
           email?: string
           id?: string
           isi_hari_tanggal?: string
+          isi_surat?: string
           isi_tempat?: string
           isi_waktu?: string
+          kepada?: string
           ketua?: string
           kop_surat?: string
           lampiran?: string
           logo_url?: string
+          niat_ketua?: string
+          niat_sekretaris?: string
           no_surat?: string
           perihal?: string
           qr_data?: string
           sekretaris?: string
           tanggal_surat?: string
+          ttd_ketua_url?: string
+          ttd_sekretaris_url?: string
         }
         Relationships: []
       }
