@@ -15,6 +15,7 @@ import PJPage from "./pages/PJPage";
 import NotulensiPage from "./pages/NotulensiPage";
 import NotFound from "./pages/NotFound";
 import MarufPage from "./pages/MarufPage";
+import BuatSuratPage from "./pages/BuatSuratPage";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 const queryClient = new QueryClient();
