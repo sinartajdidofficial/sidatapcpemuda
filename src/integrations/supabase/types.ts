@@ -298,6 +298,63 @@ export type Database = {
         }
         Relationships: []
       }
+      surat_draft: {
+        Row: {
+          alamat: string
+          created_at: string
+          email: string
+          id: string
+          isi_hari_tanggal: string
+          isi_tempat: string
+          isi_waktu: string
+          ketua: string
+          kop_surat: string
+          lampiran: string
+          logo_url: string
+          no_surat: string
+          perihal: string
+          qr_data: string
+          sekretaris: string
+          tanggal_surat: string
+        }
+        Insert: {
+          alamat?: string
+          created_at?: string
+          email?: string
+          id?: string
+          isi_hari_tanggal?: string
+          isi_tempat?: string
+          isi_waktu?: string
+          ketua?: string
+          kop_surat?: string
+          lampiran?: string
+          logo_url?: string
+          no_surat?: string
+          perihal?: string
+          qr_data?: string
+          sekretaris?: string
+          tanggal_surat?: string
+        }
+        Update: {
+          alamat?: string
+          created_at?: string
+          email?: string
+          id?: string
+          isi_hari_tanggal?: string
+          isi_tempat?: string
+          isi_waktu?: string
+          ketua?: string
+          kop_surat?: string
+          lampiran?: string
+          logo_url?: string
+          no_surat?: string
+          perihal?: string
+          qr_data?: string
+          sekretaris?: string
+          tanggal_surat?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

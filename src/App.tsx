@@ -15,6 +15,7 @@ import PJPage from "./pages/PJPage";
 import NotulensiPage from "./pages/NotulensiPage";
 import NotFound from "./pages/NotFound";
 import MarufPage from "./pages/MarufPage";
+import BuatSuratPage from "./pages/BuatSuratPage";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/surat" element={<SuratPage />} />
+            <Route path="/surat/buat" element={<BuatSuratPage />} />
             <Route path="/keuangan" element={<KeuanganPage />} />
             <Route path="/proker" element={<ProkerPage />} />
             <Route path="/data-pc" element={<DataPCPage />} />
@@ -43,6 +45,7 @@ const App = () => (
             <Route path="/data-pc/notulensi" element={<NotulensiPage />} />
             <Route path="/view" element={<Dashboard />} />
             <Route path="/view/surat" element={<SuratPage />} />
+            <Route path="/view/surat/buat" element={<BuatSuratPage />} />
             <Route path="/view/keuangan" element={<KeuanganPage />} />
             <Route path="/view/proker" element={<ProkerPage />} />
             <Route path="/view/data-pc" element={<DataPCPage />} />
