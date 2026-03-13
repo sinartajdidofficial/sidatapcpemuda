@@ -44,6 +44,7 @@ const App = () => (
             <Route path="/data-pc/notulensi" element={<NotulensiPage />} />
             <Route path="/view" element={<Dashboard />} />
             <Route path="/view/surat" element={<SuratPage />} />
+            <Route path="/view/surat/buat" element={<BuatSuratPage />} />
             <Route path="/view/keuangan" element={<KeuanganPage />} />
             <Route path="/view/proker" element={<ProkerPage />} />
             <Route path="/view/data-pc" element={<DataPCPage />} />

@@ -26,8 +26,17 @@ export default function AppLayout({ children, title = 'Dashboard', backTo }: App
   return (
     <div className="min-h-screen bg-background max-w-lg mx-auto relative">
       <header className="app-header">
-        <h1 className="text-lg font-bold tracking-tight">{title}</h1>
-        <p className="text-xs opacity-80">PC Pemuda Persis Cibatu</p>
+        <div className="flex items-center gap-2">
+          {backTo && (
+            <button onClick={() => navigate(backTo)} className="p-1 -ml-1 rounded-lg hover:bg-white/10 transition-colors">
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-lg font-bold tracking-tight">{title}</h1>
+            <p className="text-xs opacity-80">PC Pemuda Persis Cibatu</p>
+          </div>
+        </div>
       </header>
 
       <main className="page-content">
