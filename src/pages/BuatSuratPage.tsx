@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit, FileText, Loader2, Eye, Upload, QrCode } from 'lucide-react';
+import { Plus, Trash2, Edit, FileText, Loader2, Eye, Upload, QrCode, Image } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,11 +23,17 @@ interface SuratDraft {
   lampiran: string;
   perihal: string;
   tanggal_surat: string;
+  isi_surat: string;
+  kepada: string;
   isi_hari_tanggal: string;
   isi_waktu: string;
   isi_tempat: string;
   ketua: string;
   sekretaris: string;
+  ttd_ketua_url: string;
+  ttd_sekretaris_url: string;
+  niat_ketua: string;
+  niat_sekretaris: string;
   qr_data: string;
   created_at: string;
 }
@@ -41,17 +47,25 @@ interface SuratDraftForm {
   lampiran: string;
   perihal: string;
   tanggal_surat: string;
+  isi_surat: string;
+  kepada: string;
   isi_hari_tanggal: string;
   isi_waktu: string;
   isi_tempat: string;
   ketua: string;
   sekretaris: string;
+  ttd_ketua_url: string;
+  ttd_sekretaris_url: string;
+  niat_ketua: string;
+  niat_sekretaris: string;
 }
 
 const emptyForm: SuratDraftForm = {
   logo_url: '', kop_surat: '', alamat: '', email: '', no_surat: '',
-  lampiran: '', perihal: '', tanggal_surat: '', isi_hari_tanggal: '',
-  isi_waktu: '', isi_tempat: '', ketua: '', sekretaris: '',
+  lampiran: '', perihal: '', tanggal_surat: '', isi_surat: '', kepada: '',
+  isi_hari_tanggal: '', isi_waktu: '', isi_tempat: '',
+  ketua: '', sekretaris: '', ttd_ketua_url: '', ttd_sekretaris_url: '',
+  niat_ketua: '', niat_sekretaris: '',
 };
 
 export default function BuatSuratPage() {
@@ -63,7 +77,11 @@ export default function BuatSuratPage() {
   const [viewDraft, setViewDraft] = useState<SuratDraft | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [ttdKetuaFile, setTtdKetuaFile] = useState<File | null>(null);
+  const [ttdKetuaPreview, setTtdKetuaPreview] = useState<string>('');
+  const [ttdSekretarisFile, setTtdSekretarisFile] = useState<File | null>(null);
+  const [ttdSekretarisPreview, setTtdSekretarisPreview] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   const { data: drafts = [], isLoading } = useQuery({
@@ -78,7 +96,6 @@ export default function BuatSuratPage() {
     },
   });
 
-  // Generate QR code when viewing a draft
   useEffect(() => {
     if (viewDraft?.qr_data) {
       QRCode.toDataURL(viewDraft.qr_data, { width: 120, margin: 1 })
@@ -89,54 +106,63 @@ export default function BuatSuratPage() {
     }
   }, [viewDraft]);
 
-  async function uploadLogo(): Promise<string> {
-    if (!logoFile) return form.logo_url;
-    setUploadingLogo(true);
-    try {
-      const ext = logoFile.name.split('.').pop();
-      const fileName = `logo-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('surat-logos').upload(fileName, logoFile);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('surat-logos').getPublicUrl(fileName);
-      return urlData.publicUrl;
-    } finally {
-      setUploadingLogo(false);
-    }
+  async function uploadFile(file: File | null, existingUrl: string, prefix: string): Promise<string> {
+    if (!file) return existingUrl;
+    const ext = file.name.split('.').pop();
+    const fileName = `${prefix}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('surat-logos').upload(fileName, file);
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from('surat-logos').getPublicUrl(fileName);
+    return urlData.publicUrl;
   }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const logoUrl = await uploadLogo();
-      const qrContent = `Surat: ${form.no_surat} | Perihal: ${form.perihal} | Tanggal: ${form.tanggal_surat} | Ketua: ${form.ketua} | Sekretaris: ${form.sekretaris}`;
-      const row = {
-        logo_url: logoUrl,
-        kop_surat: form.kop_surat,
-        alamat: form.alamat,
-        email: form.email,
-        no_surat: form.no_surat,
-        lampiran: form.lampiran,
-        perihal: form.perihal,
-        tanggal_surat: form.tanggal_surat,
-        isi_hari_tanggal: form.isi_hari_tanggal,
-        isi_waktu: form.isi_waktu,
-        isi_tempat: form.isi_tempat,
-        ketua: form.ketua,
-        sekretaris: form.sekretaris,
-        qr_data: qrContent,
-      };
-      if (editId) {
-        const { error } = await supabase.from('surat_draft').update(row).eq('id', editId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('surat_draft').insert(row);
-        if (error) throw error;
+      setUploading(true);
+      try {
+        const [logoUrl, ttdKetuaUrl, ttdSekretarisUrl] = await Promise.all([
+          uploadFile(logoFile, form.logo_url, 'logo'),
+          uploadFile(ttdKetuaFile, form.ttd_ketua_url, 'ttd-ketua'),
+          uploadFile(ttdSekretarisFile, form.ttd_sekretaris_url, 'ttd-sekretaris'),
+        ]);
+        const qrContent = `Surat: ${form.no_surat} | Perihal: ${form.perihal} | Tanggal: ${form.tanggal_surat} | Ketua: ${form.ketua} | Sekretaris: ${form.sekretaris}`;
+        const row = {
+          logo_url: logoUrl,
+          kop_surat: form.kop_surat,
+          alamat: form.alamat,
+          email: form.email,
+          no_surat: form.no_surat,
+          lampiran: form.lampiran,
+          perihal: form.perihal,
+          tanggal_surat: form.tanggal_surat,
+          isi_surat: form.isi_surat,
+          kepada: form.kepada,
+          isi_hari_tanggal: form.isi_hari_tanggal,
+          isi_waktu: form.isi_waktu,
+          isi_tempat: form.isi_tempat,
+          ketua: form.ketua,
+          sekretaris: form.sekretaris,
+          ttd_ketua_url: ttdKetuaUrl,
+          ttd_sekretaris_url: ttdSekretarisUrl,
+          niat_ketua: form.niat_ketua,
+          niat_sekretaris: form.niat_sekretaris,
+          qr_data: qrContent,
+        };
+        if (editId) {
+          const { error } = await supabase.from('surat_draft').update(row).eq('id', editId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('surat_draft').insert(row);
+          if (error) throw error;
+        }
+      } finally {
+        setUploading(false);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['surat-draft'] });
       setOpen(false);
-      setLogoFile(null);
-      setLogoPreview('');
+      resetFiles();
       toast.success('Surat berhasil disimpan');
     },
     onError: (e) => toast.error(e.message),
@@ -154,11 +180,16 @@ export default function BuatSuratPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  function resetFiles() {
+    setLogoFile(null); setLogoPreview('');
+    setTtdKetuaFile(null); setTtdKetuaPreview('');
+    setTtdSekretarisFile(null); setTtdSekretarisPreview('');
+  }
+
   function openCreate() {
     setEditId(null);
     setForm(emptyForm);
-    setLogoFile(null);
-    setLogoPreview('');
+    resetFiles();
     setOpen(true);
   }
 
@@ -168,20 +199,28 @@ export default function BuatSuratPage() {
       logo_url: draft.logo_url, kop_surat: draft.kop_surat, alamat: draft.alamat,
       email: draft.email, no_surat: draft.no_surat, lampiran: draft.lampiran,
       perihal: draft.perihal, tanggal_surat: draft.tanggal_surat,
+      isi_surat: draft.isi_surat, kepada: draft.kepada,
       isi_hari_tanggal: draft.isi_hari_tanggal, isi_waktu: draft.isi_waktu,
       isi_tempat: draft.isi_tempat, ketua: draft.ketua, sekretaris: draft.sekretaris,
+      ttd_ketua_url: draft.ttd_ketua_url, ttd_sekretaris_url: draft.ttd_sekretaris_url,
+      niat_ketua: draft.niat_ketua, niat_sekretaris: draft.niat_sekretaris,
     });
-    setLogoFile(null);
-    setLogoPreview(draft.logo_url);
+    setLogoFile(null); setLogoPreview(draft.logo_url);
+    setTtdKetuaFile(null); setTtdKetuaPreview(draft.ttd_ketua_url);
+    setTtdSekretarisFile(null); setTtdSekretarisPreview(draft.ttd_sekretaris_url);
     setOpen(true);
   }
 
-  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFile: (f: File | null) => void,
+    setPreview: (s: string) => void
+  ) {
     const file = e.target.files?.[0];
     if (file) {
-      setLogoFile(file);
+      setFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => setLogoPreview(reader.result as string);
+      reader.onloadend = () => setPreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   }
@@ -262,16 +301,40 @@ export default function BuatSuratPage() {
               </div>
 
               <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kepada</p>
+                <span className="text-sm text-foreground whitespace-pre-wrap">{viewDraft.kepada || '-'}</span>
+              </div>
+
+              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Isi Surat</p>
-                <DetailRow label="Hari/Tanggal" value={viewDraft.isi_hari_tanggal} />
-                <DetailRow label="Waktu" value={viewDraft.isi_waktu} />
-                <DetailRow label="Tempat" value={viewDraft.isi_tempat} />
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{viewDraft.isi_surat || '-'}</p>
+                <div className="border-t border-border pt-3 space-y-2">
+                  <DetailRow label="Hari/Tanggal" value={viewDraft.isi_hari_tanggal} />
+                  <DetailRow label="Waktu" value={viewDraft.isi_waktu} />
+                  <DetailRow label="Tempat" value={viewDraft.isi_tempat} />
+                </div>
               </div>
 
               <div className="bg-muted/50 rounded-xl p-4 space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tertanda</p>
-                <DetailRow label="Ketua" value={viewDraft.ketua} />
-                <DetailRow label="Sekretaris" value={viewDraft.sekretaris} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center space-y-2">
+                    <p className="text-[11px] font-medium text-muted-foreground">Ketua</p>
+                    {viewDraft.ttd_ketua_url && (
+                      <img src={viewDraft.ttd_ketua_url} alt="TTD Ketua" className="h-16 mx-auto object-contain" />
+                    )}
+                    <p className="text-sm font-semibold text-foreground">{viewDraft.ketua || '-'}</p>
+                    {viewDraft.niat_ketua && <p className="text-[10px] text-muted-foreground">NIAT : {viewDraft.niat_ketua}</p>}
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="text-[11px] font-medium text-muted-foreground">Sekretaris</p>
+                    {viewDraft.ttd_sekretaris_url && (
+                      <img src={viewDraft.ttd_sekretaris_url} alt="TTD Sekretaris" className="h-16 mx-auto object-contain" />
+                    )}
+                    <p className="text-sm font-semibold text-foreground">{viewDraft.sekretaris || '-'}</p>
+                    {viewDraft.niat_sekretaris && <p className="text-[10px] text-muted-foreground">NIAT : {viewDraft.niat_sekretaris}</p>}
+                  </div>
+                </div>
               </div>
 
               {qrDataUrl && (
@@ -321,7 +384,7 @@ export default function BuatSuratPage() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <Input type="file" accept="image/*" onChange={handleLogoChange} className="text-xs" />
+                      <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setLogoFile, setLogoPreview)} className="text-xs" />
                     </div>
                   </div>
                 </div>
@@ -333,7 +396,7 @@ export default function BuatSuratPage() {
                 <div className="border-t border-border pt-4">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Detail Surat</p>
                   <div className="space-y-4">
-                    <div><Label>No. Surat *</Label><Input value={form.no_surat} onChange={(e) => setForm({ ...form, no_surat: e.target.value })} placeholder="Nomor surat" /></div>
+                    <div><Label>No. Surat *</Label><Input value={form.no_surat} onChange={(e) => setForm({ ...form, no_surat: e.target.value })} placeholder="Contoh: 003/B.1-C.6/Pemuda/2025" /></div>
                     <div><Label>Lampiran</Label><Input value={form.lampiran} onChange={(e) => setForm({ ...form, lampiran: e.target.value })} placeholder="Lampiran" /></div>
                     <div><Label>Perihal Surat *</Label><Input value={form.perihal} onChange={(e) => setForm({ ...form, perihal: e.target.value })} placeholder="Perihal surat" /></div>
                     <div><Label>Tanggal Surat</Label><Input type="date" value={form.tanggal_surat} onChange={(e) => setForm({ ...form, tanggal_surat: e.target.value })} /></div>
@@ -341,19 +404,79 @@ export default function BuatSuratPage() {
                 </div>
 
                 <div className="border-t border-border pt-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Kepada</p>
+                  <Textarea
+                    value={form.kepada}
+                    onChange={(e) => setForm({ ...form, kepada: e.target.value })}
+                    placeholder="Contoh: Ketua Pemuda Persis Cibatu&#10;Di&#10;Tempat"
+                    className="min-h-[80px]"
+                  />
+                </div>
+
+                <div className="border-t border-border pt-4">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Isi Surat</p>
                   <div className="space-y-4">
-                    <div><Label>Hari/Tanggal</Label><Input value={form.isi_hari_tanggal} onChange={(e) => setForm({ ...form, isi_hari_tanggal: e.target.value })} placeholder="Contoh: Senin, 13 Maret 2026" /></div>
-                    <div><Label>Waktu</Label><Input value={form.isi_waktu} onChange={(e) => setForm({ ...form, isi_waktu: e.target.value })} placeholder="Contoh: 09:00 - Selesai" /></div>
-                    <div><Label>Tempat</Label><Input value={form.isi_tempat} onChange={(e) => setForm({ ...form, isi_tempat: e.target.value })} placeholder="Contoh: Aula Kantor" /></div>
+                    <div>
+                      <Label>Isi / Badan Surat</Label>
+                      <Textarea
+                        value={form.isi_surat}
+                        onChange={(e) => setForm({ ...form, isi_surat: e.target.value })}
+                        placeholder="Tuliskan isi surat secara lengkap di sini...&#10;&#10;Contoh: Semoga rahmat dan maghfiroh Alloh Subhanahu Wata'ala senantiasa tercurah kepada kita. Aamiin.&#10;&#10;Selanjutnya, PC Persis Cibatu akan melaksanakan kegiatan..."
+                        className="min-h-[200px] leading-relaxed"
+                      />
+                    </div>
+                    <div><Label>Hari/Tanggal</Label><Input value={form.isi_hari_tanggal} onChange={(e) => setForm({ ...form, isi_hari_tanggal: e.target.value })} placeholder="Contoh: Ahad, 28 September 2025" /></div>
+                    <div><Label>Waktu</Label><Input value={form.isi_waktu} onChange={(e) => setForm({ ...form, isi_waktu: e.target.value })} placeholder="Contoh: 13.00 s.d. Selesai" /></div>
+                    <div><Label>Tempat</Label><Input value={form.isi_tempat} onChange={(e) => setForm({ ...form, isi_tempat: e.target.value })} placeholder="Contoh: Mesjid Besar Kec. Cibatu" /></div>
                   </div>
                 </div>
 
                 <div className="border-t border-border pt-4">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tertanda</p>
                   <div className="space-y-4">
-                    <div><Label>Ketua</Label><Input value={form.ketua} onChange={(e) => setForm({ ...form, ketua: e.target.value })} placeholder="Nama ketua" /></div>
-                    <div><Label>Sekretaris</Label><Input value={form.sekretaris} onChange={(e) => setForm({ ...form, sekretaris: e.target.value })} placeholder="Nama sekretaris" /></div>
+                    {/* Ketua */}
+                    <div className="bg-muted/30 rounded-xl p-3 space-y-3">
+                      <p className="text-xs font-semibold text-foreground">Ketua</p>
+                      <div><Label>Nama Ketua</Label><Input value={form.ketua} onChange={(e) => setForm({ ...form, ketua: e.target.value })} placeholder="Nama ketua" /></div>
+                      <div><Label>NIAT Ketua</Label><Input value={form.niat_ketua} onChange={(e) => setForm({ ...form, niat_ketua: e.target.value })} placeholder="Contoh: 13.407" /></div>
+                      <div>
+                        <Label>Upload Tanda Tangan Ketua</Label>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          {ttdKetuaPreview ? (
+                            <img src={ttdKetuaPreview} alt="TTD Ketua" className="h-12 w-20 object-contain rounded-lg border border-border bg-background" />
+                          ) : (
+                            <div className="h-12 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                              <Image size={16} className="text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setTtdKetuaFile, setTtdKetuaPreview)} className="text-xs" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sekretaris */}
+                    <div className="bg-muted/30 rounded-xl p-3 space-y-3">
+                      <p className="text-xs font-semibold text-foreground">Sekretaris</p>
+                      <div><Label>Nama Sekretaris</Label><Input value={form.sekretaris} onChange={(e) => setForm({ ...form, sekretaris: e.target.value })} placeholder="Nama sekretaris" /></div>
+                      <div><Label>NIAT Sekretaris</Label><Input value={form.niat_sekretaris} onChange={(e) => setForm({ ...form, niat_sekretaris: e.target.value })} placeholder="Contoh: 01.08.47226.025" /></div>
+                      <div>
+                        <Label>Upload Tanda Tangan Sekretaris</Label>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          {ttdSekretarisPreview ? (
+                            <img src={ttdSekretarisPreview} alt="TTD Sekretaris" className="h-12 w-20 object-contain rounded-lg border border-border bg-background" />
+                          ) : (
+                            <div className="h-12 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                              <Image size={16} className="text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setTtdSekretarisFile, setTtdSekretarisPreview)} className="text-xs" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -362,8 +485,8 @@ export default function BuatSuratPage() {
                   <p className="text-xs text-muted-foreground">QR Code akan dibuat otomatis berdasarkan data surat</p>
                 </div>
 
-                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending || uploadingLogo}>
-                  {(saveMutation.isPending || uploadingLogo) ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                <Button className="w-full" onClick={handleSave} disabled={saveMutation.isPending || uploading}>
+                  {(saveMutation.isPending || uploading) ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
                   {editId ? 'Simpan Perubahan' : 'Buat Surat'}
                 </Button>
               </div>
