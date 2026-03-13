@@ -34,6 +34,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/surat" element={<SuratPage />} />
+            <Route path="/surat/buat" element={<BuatSuratPage />} />
             <Route path="/keuangan" element={<KeuanganPage />} />
             <Route path="/proker" element={<ProkerPage />} />
             <Route path="/data-pc" element={<DataPCPage />} />
