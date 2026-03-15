@@ -247,185 +247,226 @@ export default function BuatSuratPage() {
     }
   }
 
+  function getVerificationUrl(draftId: string) {
+    const base = window.location.origin;
+    return `${base}/verifikasi-surat/${draftId}`;
+  }
+
   async function exportToPdf(draft: SuratDraft) {
     setExporting(true);
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      const pageW = doc.internal.pageSize.getWidth();
-      const marginL = 25;
-      const marginR = 25;
-      const contentW = pageW - marginL - marginR;
-      let y = 15;
+      const pageW = doc.internal.pageSize.getWidth(); // 210
+      const mL = 20;
+      const mR = 20;
+      const cW = pageW - mL - mR; // 170
+      let y = 18;
 
-      // ----- KOP SURAT -----
-      // Logo
+      // ===== KOP SURAT =====
+      let logoEndX = mL;
       if (draft.logo_url) {
         try {
           const logoData = await loadImageAsDataUrl(draft.logo_url);
           if (logoData) {
-            doc.addImage(logoData, 'PNG', marginL, y, 18, 18);
+            doc.addImage(logoData, 'PNG', mL, y - 3, 20, 20);
+            logoEndX = mL + 23;
           }
-        } catch { /* skip logo */ }
+        } catch { /* skip */ }
       }
 
-      // Kop text
-      const kopX = marginL + 22;
-      const kopW = contentW - 22;
+      const kopCenterX = logoEndX + (pageW - mR - logoEndX) / 2;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      const kopLines = doc.splitTextToSize(draft.kop_surat || '', kopW);
-      doc.text(kopLines, kopX + kopW / 2, y + 4, { align: 'center', maxWidth: kopW });
-      
+      doc.setFontSize(12);
+      const kopText = (draft.kop_surat || '').toUpperCase();
+      const kopMaxW = pageW - mR - logoEndX - 2;
+      const kopSplit = doc.splitTextToSize(kopText, kopMaxW);
+      let kopY = y;
+      for (const line of kopSplit) {
+        doc.text(line, kopCenterX, kopY, { align: 'center' });
+        kopY += 5;
+      }
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      const alamatLine = `Sekretariat : ${draft.alamat || ''}`;
-      doc.text(alamatLine, kopX + kopW / 2, y + 4 + kopLines.length * 4.5, { align: 'center', maxWidth: kopW });
+      doc.text(`Sekretariat : ${draft.alamat || ''}`, kopCenterX, kopY + 1, { align: 'center' });
 
-      y = y + 4 + kopLines.length * 4.5 + 6;
+      y = Math.max(kopY + 5, y + 20);
 
-      // Line separator
-      doc.setDrawColor(30, 120, 90);
-      doc.setLineWidth(0.8);
-      doc.line(marginL, y, pageW - marginR, y);
+      // Double line separator
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(1);
+      doc.line(mL, y, pageW - mR, y);
       doc.setLineWidth(0.3);
-      doc.line(marginL, y + 1.2, pageW - marginR, y + 1.2);
-      y += 6;
-
-      // ----- NOMOR, LAMPIRAN, PERIHAL -----
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      const labelX = marginL;
-      const colonX = marginL + 28;
-      const valX = colonX + 3;
-
-      doc.text('Nomor', labelX, y);
-      doc.text(':', colonX, y);
-      doc.text(draft.no_surat || '-', valX, y);
-      y += 5;
-
-      doc.text('Lampiran', labelX, y);
-      doc.text(':', colonX, y);
-      doc.text(draft.lampiran || '-', valX, y);
-      y += 5;
-
-      doc.text('Perihal', labelX, y);
-      doc.text(':', colonX, y);
-      doc.setFont('helvetica', 'bold');
-      doc.text(draft.perihal || '-', valX, y);
-      doc.setFont('helvetica', 'normal');
+      doc.line(mL, y + 1.5, pageW - mR, y + 1.5);
       y += 8;
 
-      // ----- KEPADA -----
-      doc.text('Kepada Yth:', labelX, y);
-      y += 5;
+      // ===== NOMOR / LAMPIRAN / PERIHAL =====
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      const lblW = 25;
+      const colX = mL + lblW;
+      const vX = colX + 4;
+
+      doc.text('Nomor', mL, y);
+      doc.text(':', colX, y);
+      doc.text(draft.no_surat || '-', vX, y);
+      y += 6;
+      doc.text('Lampiran', mL, y);
+      doc.text(':', colX, y);
+      doc.text(draft.lampiran || '-', vX, y);
+      y += 6;
+      doc.text('Perihal', mL, y);
+      doc.text(':', colX, y);
+      doc.setFont('helvetica', 'bold');
+      const perihalLines = doc.splitTextToSize(draft.perihal || '-', cW - lblW - 6);
+      for (const line of perihalLines) {
+        doc.text(line, vX, y);
+        y += 5;
+      }
+      doc.setFont('helvetica', 'normal');
+      y += 4;
+
+      // ===== KEPADA =====
+      doc.setFontSize(11);
+      doc.text('Kepada Yth:', mL, y);
+      y += 6;
       const kepadaLines = (draft.kepada || '').split('\n');
       for (const line of kepadaLines) {
-        doc.text(line, labelX, y);
-        y += 4.5;
+        doc.text(line, mL, y);
+        y += 5;
+      }
+      y += 6;
+
+      // ===== ISI SURAT =====
+      doc.setFontSize(11);
+      const bodyText = draft.isi_surat || '';
+      const bodyParagraphs = bodyText.split('\n');
+      for (const para of bodyParagraphs) {
+        if (para.trim() === '') { y += 3; continue; }
+        const wrapped = doc.splitTextToSize(para, cW);
+        for (const line of wrapped) {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.text(line, mL, y, { align: 'justify', maxWidth: cW });
+          y += 5.5;
+        }
       }
       y += 4;
 
-      // ----- ISI SURAT -----
-      doc.setFontSize(10);
-      const bodyLines = doc.splitTextToSize(draft.isi_surat || '', contentW);
-      for (const line of bodyLines) {
-        if (y > 265) { doc.addPage(); y = 20; }
-        doc.text(line, marginL, y);
-        y += 4.5;
-      }
-      y += 3;
-
-      // ----- TABEL KEGIATAN -----
+      // ===== TABEL KEGIATAN =====
       if (draft.isi_hari_tanggal || draft.isi_waktu || draft.isi_tempat) {
         if (y > 240) { doc.addPage(); y = 20; }
-        
-        const tableData = [
+
+        const tableRows = [
           ['Hari & tanggal', draft.isi_hari_tanggal || '-'],
           ['Waktu', draft.isi_waktu || '-'],
           ['Tempat', draft.isi_tempat || '-'],
         ];
+        const c1W = 45;
+        const c2W = cW - c1W;
+        const rH = 8;
 
-        const col1W = 40;
-        const col2W = contentW - col1W;
-        const rowH = 7;
-
-        for (const [label, value] of tableData) {
-          doc.setDrawColor(100, 100, 100);
-          doc.setLineWidth(0.2);
-          doc.rect(marginL, y - 4.5, col1W, rowH);
-          doc.rect(marginL + col1W, y - 4.5, col2W, rowH);
-          
+        doc.setFontSize(10);
+        for (const [label, value] of tableRows) {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.setDrawColor(80, 80, 80);
+          doc.setLineWidth(0.3);
+          doc.rect(mL, y, c1W, rH);
+          doc.rect(mL + c1W, y, c2W, rH);
           doc.setFont('helvetica', 'bold');
-          doc.text(label, marginL + 2, y - 0.5);
+          doc.text(label, mL + 3, y + 5.5);
           doc.setFont('helvetica', 'normal');
-          doc.text(value, marginL + col1W + 2, y - 0.5);
-          y += rowH;
+          doc.text(value, mL + c1W + 3, y + 5.5);
+          y += rH;
         }
-        y += 5;
+        y += 6;
       }
 
-      // ----- PENUTUP -----
-      doc.text('Demikian surat undangan ini kami sampaikan, atas perhatiannya disampaikan banyak terima kasih.', marginL, y, { maxWidth: contentW });
-      y += 10;
+      // ===== PENUTUP =====
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      const penutup = 'Demikian surat ini kami sampaikan, atas perhatiannya disampaikan banyak terima kasih.';
+      const penutupLines = doc.splitTextToSize(penutup, cW);
+      for (const line of penutupLines) {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(line, mL, y);
+        y += 5.5;
+      }
+      y += 8;
 
-      // ----- TANGGAL & KOP BAWAH -----
-      if (y > 230) { doc.addPage(); y = 20; }
-      
-      const rightBlockX = pageW / 2 + 5;
-      doc.text(`${formatDate(draft.tanggal_surat)}`, rightBlockX, y);
+      // ===== TANGGAL & KOP BAWAH (right half) =====
+      if (y > 220) { doc.addPage(); y = 20; }
+
+      const rightX = pageW / 2 + 8;
+      const rightW = pageW - mR - rightX;
+      const rightCenterX = rightX + rightW / 2;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Cibatu, ${formatDate(draft.tanggal_surat)}`, rightCenterX, y, { align: 'center' });
       y += 6;
-      
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      const kopBawahLines = doc.splitTextToSize(draft.kop_surat || '', contentW / 2 - 5);
-      for (const line of kopBawahLines) {
-        doc.text(line, rightBlockX, y);
-        y += 4;
+      const kopBawah = (draft.kop_surat || '').toUpperCase();
+      const kopBLines = doc.splitTextToSize(kopBawah, rightW);
+      for (const line of kopBLines) {
+        doc.text(line, rightCenterX, y, { align: 'center' });
+        y += 4.5;
       }
       doc.setFont('helvetica', 'normal');
-      y += 2;
+      y += 3;
 
-      // ----- TTD KETUA & SEKRETARIS -----
-      const ttdY = y;
-      const ketuaX = rightBlockX;
-      const sekretarisX = rightBlockX + 45;
+      // ===== TTD: Ketua (left col) & Sekretaris (right col) =====
+      const ttdStartY = y;
+      const ttdColW = rightW / 2;
+      const ketuaCX = rightX + ttdColW / 2;
+      const sekCX = rightX + ttdColW + ttdColW / 2;
 
-      doc.setFontSize(9);
-      doc.text('Ketua,', ketuaX, ttdY);
-      doc.text('Sekretaris,', sekretarisX, ttdY);
+      doc.setFontSize(10);
+      doc.text('Ketua,', ketuaCX, ttdStartY, { align: 'center' });
+      doc.text('Sekretaris,', sekCX, ttdStartY, { align: 'center' });
 
-      // TTD images
-      let ttdImgY = ttdY + 3;
+      // Signature images
+      const sigY = ttdStartY + 4;
+      const sigW = 32;
+      const sigH = 16;
       if (draft.ttd_ketua_url) {
         try {
-          const ttdData = await loadImageAsDataUrl(draft.ttd_ketua_url);
-          if (ttdData) doc.addImage(ttdData, 'PNG', ketuaX, ttdImgY, 30, 15);
+          const d = await loadImageAsDataUrl(draft.ttd_ketua_url);
+          if (d) doc.addImage(d, 'PNG', ketuaCX - sigW / 2, sigY, sigW, sigH);
         } catch { /* skip */ }
       }
       if (draft.ttd_sekretaris_url) {
         try {
-          const ttdData = await loadImageAsDataUrl(draft.ttd_sekretaris_url);
-          if (ttdData) doc.addImage(ttdData, 'PNG', sekretarisX, ttdImgY, 30, 15);
+          const d = await loadImageAsDataUrl(draft.ttd_sekretaris_url);
+          if (d) doc.addImage(d, 'PNG', sekCX - sigW / 2, sigY, sigW, sigH);
         } catch { /* skip */ }
       }
 
-      const nameY = ttdImgY + 18;
+      const nameY = sigY + sigH + 3;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text(draft.ketua || '-', ketuaX, nameY);
-      doc.text(draft.sekretaris || '-', sekretarisX, nameY);
+      doc.setFontSize(10);
+      doc.text(draft.ketua || '-', ketuaCX, nameY, { align: 'center' });
+      doc.text(draft.sekretaris || '-', sekCX, nameY, { align: 'center' });
+
+      // Underline names
+      const ketuaNameW = doc.getTextWidth(draft.ketua || '-');
+      doc.setLineWidth(0.3);
+      doc.line(ketuaCX - ketuaNameW / 2, nameY + 1, ketuaCX + ketuaNameW / 2, nameY + 1);
+      const sekNameW = doc.getTextWidth(draft.sekretaris || '-');
+      doc.line(sekCX - sekNameW / 2, nameY + 1, sekCX + sekNameW / 2, nameY + 1);
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      if (draft.niat_ketua) doc.text(`NIAT : ${draft.niat_ketua}`, ketuaX, nameY + 4);
-      if (draft.niat_sekretaris) doc.text(`NIAT : ${draft.niat_sekretaris}`, sekretarisX, nameY + 4);
+      doc.setFontSize(7.5);
+      if (draft.niat_ketua) doc.text(`NIAT : ${draft.niat_ketua}`, ketuaCX, nameY + 5, { align: 'center' });
+      if (draft.niat_sekretaris) doc.text(`NIAT : ${draft.niat_sekretaris}`, sekCX, nameY + 5, { align: 'center' });
 
-      // ----- QR CODE -----
-      if (draft.qr_data) {
-        const qrImg = await QRCode.toDataURL(draft.qr_data, { width: 200, margin: 1 });
-        const qrSize = 22;
-        doc.addImage(qrImg, 'PNG', marginL, ttdY - 2, qrSize, qrSize);
-      }
+      // ===== QR CODE (bottom-left) =====
+      const verifyUrl = getVerificationUrl(draft.id);
+      const qrImg = await QRCode.toDataURL(verifyUrl, { width: 300, margin: 1 });
+      const qrSize = 25;
+      doc.addImage(qrImg, 'PNG', mL, ttdStartY - 4, qrSize, qrSize);
+      doc.setFontSize(6);
+      doc.text('Scan untuk verifikasi', mL + qrSize / 2, ttdStartY - 4 + qrSize + 3, { align: 'center' });
 
       doc.save(`Surat_${draft.perihal || 'Draft'}.pdf`);
       toast.success('PDF berhasil diunduh');
