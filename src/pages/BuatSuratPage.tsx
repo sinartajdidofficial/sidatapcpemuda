@@ -127,7 +127,7 @@ export default function BuatSuratPage() {
           uploadFile(ttdKetuaFile, form.ttd_ketua_url, 'ttd-ketua'),
           uploadFile(ttdSekretarisFile, form.ttd_sekretaris_url, 'ttd-sekretaris'),
         ]);
-        const qrContent = `Surat: ${form.no_surat} | Perihal: ${form.perihal} | Tanggal: ${form.tanggal_surat} | Ketua: ${form.ketua} | Sekretaris: ${form.sekretaris}`;
+        // QR content will be set to verification URL after insert (needs ID)
         const row = {
           logo_url: logoUrl, kop_surat: form.kop_surat, alamat: form.alamat,
           email: form.email, no_surat: form.no_surat, lampiran: form.lampiran,
@@ -137,7 +137,7 @@ export default function BuatSuratPage() {
           isi_tempat: form.isi_tempat, ketua: form.ketua, sekretaris: form.sekretaris,
           ttd_ketua_url: ttdKetuaUrl, ttd_sekretaris_url: ttdSekretarisUrl,
           niat_ketua: form.niat_ketua, niat_sekretaris: form.niat_sekretaris,
-          qr_data: qrContent,
+          qr_data: '', // placeholder, will be updated
         };
         if (editId) {
           const { error } = await supabase.from('surat_draft').update(row).eq('id', editId);
