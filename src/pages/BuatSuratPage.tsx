@@ -140,11 +140,15 @@ export default function BuatSuratPage() {
           qr_data: '', // placeholder, will be updated
         };
         if (editId) {
+          row.qr_data = getVerificationUrl(editId);
           const { error } = await supabase.from('surat_draft').update(row).eq('id', editId);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from('surat_draft').insert(row);
+          const { data: inserted, error } = await supabase.from('surat_draft').insert(row).select('id').single();
           if (error) throw error;
+          // Update qr_data with the actual ID
+          const verifyUrl = getVerificationUrl(inserted.id);
+          await supabase.from('surat_draft').update({ qr_data: verifyUrl }).eq('id', inserted.id);
         }
       } finally {
         setUploading(false);
