@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit, FileText, Loader2, Eye, Upload, QrCode, Image } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Edit, FileText, Loader2, Eye, Upload, QrCode, Image, Download } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useReadOnly } from '@/contexts/ReadOnlyContext';
 import QRCode from 'qrcode';
+import jsPDF from 'jspdf';
 
 interface SuratDraft {
   id: string;
@@ -83,6 +84,7 @@ export default function BuatSuratPage() {
   const [ttdSekretarisPreview, setTtdSekretarisPreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [exporting, setExporting] = useState(false);
 
   const { data: drafts = [], isLoading } = useQuery({
     queryKey: ['surat-draft'],
@@ -127,25 +129,14 @@ export default function BuatSuratPage() {
         ]);
         const qrContent = `Surat: ${form.no_surat} | Perihal: ${form.perihal} | Tanggal: ${form.tanggal_surat} | Ketua: ${form.ketua} | Sekretaris: ${form.sekretaris}`;
         const row = {
-          logo_url: logoUrl,
-          kop_surat: form.kop_surat,
-          alamat: form.alamat,
-          email: form.email,
-          no_surat: form.no_surat,
-          lampiran: form.lampiran,
-          perihal: form.perihal,
-          tanggal_surat: form.tanggal_surat,
-          isi_surat: form.isi_surat,
-          kepada: form.kepada,
-          isi_hari_tanggal: form.isi_hari_tanggal,
-          isi_waktu: form.isi_waktu,
-          isi_tempat: form.isi_tempat,
-          ketua: form.ketua,
-          sekretaris: form.sekretaris,
-          ttd_ketua_url: ttdKetuaUrl,
-          ttd_sekretaris_url: ttdSekretarisUrl,
-          niat_ketua: form.niat_ketua,
-          niat_sekretaris: form.niat_sekretaris,
+          logo_url: logoUrl, kop_surat: form.kop_surat, alamat: form.alamat,
+          email: form.email, no_surat: form.no_surat, lampiran: form.lampiran,
+          perihal: form.perihal, tanggal_surat: form.tanggal_surat,
+          isi_surat: form.isi_surat, kepada: form.kepada,
+          isi_hari_tanggal: form.isi_hari_tanggal, isi_waktu: form.isi_waktu,
+          isi_tempat: form.isi_tempat, ketua: form.ketua, sekretaris: form.sekretaris,
+          ttd_ketua_url: ttdKetuaUrl, ttd_sekretaris_url: ttdSekretarisUrl,
+          niat_ketua: form.niat_ketua, niat_sekretaris: form.niat_sekretaris,
           qr_data: qrContent,
         };
         if (editId) {
@@ -240,6 +231,211 @@ export default function BuatSuratPage() {
     } catch { return dateStr; }
   }
 
+  // ---- PDF EXPORT ----
+  async function loadImageAsDataUrl(url: string): Promise<string> {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return '';
+    }
+  }
+
+  async function exportToPdf(draft: SuratDraft) {
+    setExporting(true);
+    try {
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const marginL = 25;
+      const marginR = 25;
+      const contentW = pageW - marginL - marginR;
+      let y = 15;
+
+      // ----- KOP SURAT -----
+      // Logo
+      if (draft.logo_url) {
+        try {
+          const logoData = await loadImageAsDataUrl(draft.logo_url);
+          if (logoData) {
+            doc.addImage(logoData, 'PNG', marginL, y, 18, 18);
+          }
+        } catch { /* skip logo */ }
+      }
+
+      // Kop text
+      const kopX = marginL + 22;
+      const kopW = contentW - 22;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      const kopLines = doc.splitTextToSize(draft.kop_surat || '', kopW);
+      doc.text(kopLines, kopX + kopW / 2, y + 4, { align: 'center', maxWidth: kopW });
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const alamatLine = `Sekretariat : ${draft.alamat || ''}`;
+      doc.text(alamatLine, kopX + kopW / 2, y + 4 + kopLines.length * 4.5, { align: 'center', maxWidth: kopW });
+
+      y = y + 4 + kopLines.length * 4.5 + 6;
+
+      // Line separator
+      doc.setDrawColor(30, 120, 90);
+      doc.setLineWidth(0.8);
+      doc.line(marginL, y, pageW - marginR, y);
+      doc.setLineWidth(0.3);
+      doc.line(marginL, y + 1.2, pageW - marginR, y + 1.2);
+      y += 6;
+
+      // ----- NOMOR, LAMPIRAN, PERIHAL -----
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const labelX = marginL;
+      const colonX = marginL + 28;
+      const valX = colonX + 3;
+
+      doc.text('Nomor', labelX, y);
+      doc.text(':', colonX, y);
+      doc.text(draft.no_surat || '-', valX, y);
+      y += 5;
+
+      doc.text('Lampiran', labelX, y);
+      doc.text(':', colonX, y);
+      doc.text(draft.lampiran || '-', valX, y);
+      y += 5;
+
+      doc.text('Perihal', labelX, y);
+      doc.text(':', colonX, y);
+      doc.setFont('helvetica', 'bold');
+      doc.text(draft.perihal || '-', valX, y);
+      doc.setFont('helvetica', 'normal');
+      y += 8;
+
+      // ----- KEPADA -----
+      doc.text('Kepada Yth:', labelX, y);
+      y += 5;
+      const kepadaLines = (draft.kepada || '').split('\n');
+      for (const line of kepadaLines) {
+        doc.text(line, labelX, y);
+        y += 4.5;
+      }
+      y += 4;
+
+      // ----- ISI SURAT -----
+      doc.setFontSize(10);
+      const bodyLines = doc.splitTextToSize(draft.isi_surat || '', contentW);
+      for (const line of bodyLines) {
+        if (y > 265) { doc.addPage(); y = 20; }
+        doc.text(line, marginL, y);
+        y += 4.5;
+      }
+      y += 3;
+
+      // ----- TABEL KEGIATAN -----
+      if (draft.isi_hari_tanggal || draft.isi_waktu || draft.isi_tempat) {
+        if (y > 240) { doc.addPage(); y = 20; }
+        
+        const tableData = [
+          ['Hari & tanggal', draft.isi_hari_tanggal || '-'],
+          ['Waktu', draft.isi_waktu || '-'],
+          ['Tempat', draft.isi_tempat || '-'],
+        ];
+
+        const col1W = 40;
+        const col2W = contentW - col1W;
+        const rowH = 7;
+
+        for (const [label, value] of tableData) {
+          doc.setDrawColor(100, 100, 100);
+          doc.setLineWidth(0.2);
+          doc.rect(marginL, y - 4.5, col1W, rowH);
+          doc.rect(marginL + col1W, y - 4.5, col2W, rowH);
+          
+          doc.setFont('helvetica', 'bold');
+          doc.text(label, marginL + 2, y - 0.5);
+          doc.setFont('helvetica', 'normal');
+          doc.text(value, marginL + col1W + 2, y - 0.5);
+          y += rowH;
+        }
+        y += 5;
+      }
+
+      // ----- PENUTUP -----
+      doc.text('Demikian surat undangan ini kami sampaikan, atas perhatiannya disampaikan banyak terima kasih.', marginL, y, { maxWidth: contentW });
+      y += 10;
+
+      // ----- TANGGAL & KOP BAWAH -----
+      if (y > 230) { doc.addPage(); y = 20; }
+      
+      const rightBlockX = pageW / 2 + 5;
+      doc.text(`${formatDate(draft.tanggal_surat)}`, rightBlockX, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      const kopBawahLines = doc.splitTextToSize(draft.kop_surat || '', contentW / 2 - 5);
+      for (const line of kopBawahLines) {
+        doc.text(line, rightBlockX, y);
+        y += 4;
+      }
+      doc.setFont('helvetica', 'normal');
+      y += 2;
+
+      // ----- TTD KETUA & SEKRETARIS -----
+      const ttdY = y;
+      const ketuaX = rightBlockX;
+      const sekretarisX = rightBlockX + 45;
+
+      doc.setFontSize(9);
+      doc.text('Ketua,', ketuaX, ttdY);
+      doc.text('Sekretaris,', sekretarisX, ttdY);
+
+      // TTD images
+      let ttdImgY = ttdY + 3;
+      if (draft.ttd_ketua_url) {
+        try {
+          const ttdData = await loadImageAsDataUrl(draft.ttd_ketua_url);
+          if (ttdData) doc.addImage(ttdData, 'PNG', ketuaX, ttdImgY, 30, 15);
+        } catch { /* skip */ }
+      }
+      if (draft.ttd_sekretaris_url) {
+        try {
+          const ttdData = await loadImageAsDataUrl(draft.ttd_sekretaris_url);
+          if (ttdData) doc.addImage(ttdData, 'PNG', sekretarisX, ttdImgY, 30, 15);
+        } catch { /* skip */ }
+      }
+
+      const nameY = ttdImgY + 18;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text(draft.ketua || '-', ketuaX, nameY);
+      doc.text(draft.sekretaris || '-', sekretarisX, nameY);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      if (draft.niat_ketua) doc.text(`NIAT : ${draft.niat_ketua}`, ketuaX, nameY + 4);
+      if (draft.niat_sekretaris) doc.text(`NIAT : ${draft.niat_sekretaris}`, sekretarisX, nameY + 4);
+
+      // ----- QR CODE -----
+      if (draft.qr_data) {
+        const qrImg = await QRCode.toDataURL(draft.qr_data, { width: 200, margin: 1 });
+        const qrSize = 22;
+        doc.addImage(qrImg, 'PNG', marginL, ttdY - 2, qrSize, qrSize);
+      }
+
+      doc.save(`Surat_${draft.perihal || 'Draft'}.pdf`);
+      toast.success('PDF berhasil diunduh');
+    } catch (e: any) {
+      toast.error('Gagal export PDF: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <AppLayout title="Buat Surat" backTo={`${readOnly ? '/view' : ''}/surat`}>
       {isLoading ? (
@@ -275,87 +471,167 @@ export default function BuatSuratPage() {
         </div>
       )}
 
-      {/* Detail View */}
+      {/* Preview Surat Resmi */}
       <Dialog open={!!viewDraft} onOpenChange={(o) => { if (!o) setViewDraft(null); }}>
-        <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye size={18} className="text-primary" /> Detail Surat
+        <DialogContent className="max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-2xl p-0">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Eye size={18} className="text-primary" /> Preview Surat
             </DialogTitle>
           </DialogHeader>
           {viewDraft && (
-            <div className="space-y-3 mt-1">
-              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                {viewDraft.logo_url && (
-                  <div className="flex justify-center">
-                    <img src={viewDraft.logo_url} alt="Logo" className="h-16 object-contain" />
+            <div className="px-4 pb-4">
+              {/* Official Letter Preview */}
+              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="p-6 sm:p-8 space-y-0 text-[11px] sm:text-[13px] leading-relaxed" style={{ fontFamily: 'serif', color: '#1a1a1a' }}>
+                  
+                  {/* KOP SURAT */}
+                  <div className="flex items-start gap-3 pb-3">
+                    {viewDraft.logo_url && (
+                      <img src={viewDraft.logo_url} alt="Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain shrink-0" />
+                    )}
+                    <div className="flex-1 text-center">
+                      <p className="font-bold text-[13px] sm:text-[15px] uppercase tracking-wide leading-tight">
+                        {viewDraft.kop_surat || 'KOP SURAT'}
+                      </p>
+                      <p className="text-[9px] sm:text-[10px] mt-1 opacity-70">
+                        Sekretariat : {viewDraft.alamat || '-'}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Separator */}
+                  <div className="border-b-[3px] border-double border-[hsl(var(--primary))]" />
+
+                  {/* Nomor, Lampiran, Perihal */}
+                  <div className="pt-4 space-y-1">
+                    <div className="flex gap-2">
+                      <span className="w-20 shrink-0">Nomor</span>
+                      <span>:</span>
+                      <span>{viewDraft.no_surat || '-'}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 shrink-0">Lampiran</span>
+                      <span>:</span>
+                      <span>{viewDraft.lampiran || '-'}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 shrink-0">Perihal</span>
+                      <span>:</span>
+                      <span className="font-bold">{viewDraft.perihal || '-'}</span>
+                    </div>
+                  </div>
+
+                  {/* Kepada */}
+                  <div className="pt-4">
+                    <p>Kepada Yth:</p>
+                    <div className="whitespace-pre-wrap pl-0 mt-1">
+                      {viewDraft.kepada || '-'}
+                    </div>
+                  </div>
+
+                  {/* Isi Surat */}
+                  <div className="pt-4 whitespace-pre-wrap text-justify leading-[1.8]">
+                    {viewDraft.isi_surat || '-'}
+                  </div>
+
+                  {/* Tabel Kegiatan */}
+                  {(viewDraft.isi_hari_tanggal || viewDraft.isi_waktu || viewDraft.isi_tempat) && (
+                    <div className="pt-3">
+                      <table className="w-full border-collapse text-[10px] sm:text-[12px]">
+                        <tbody>
+                          {[
+                            ['Hari & tanggal', viewDraft.isi_hari_tanggal],
+                            ['Waktu', viewDraft.isi_waktu],
+                            ['Tempat', viewDraft.isi_tempat],
+                          ].map(([label, value]) => (
+                            <tr key={label}>
+                              <td className="border border-gray-400 px-2 py-1.5 font-bold w-[35%] bg-gray-50">{label}</td>
+                              <td className="border border-gray-400 px-2 py-1.5">{value || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Penutup */}
+                  <div className="pt-4">
+                    <p>Demikian surat ini kami sampaikan, atas perhatiannya disampaikan banyak terima kasih.</p>
+                  </div>
+
+                  {/* Tanggal & TTD */}
+                  <div className="pt-6 flex flex-col sm:flex-row gap-4">
+                    {/* QR Code - left */}
+                    <div className="shrink-0 flex items-end">
+                      {qrDataUrl && (
+                        <img src={qrDataUrl} alt="QR Code" className="w-20 h-20 sm:w-24 sm:h-24" />
+                      )}
+                    </div>
+
+                    {/* TTD Block - right */}
+                    <div className="flex-1 text-center sm:text-right">
+                      <p>{formatDate(viewDraft.tanggal_surat)}</p>
+                      <p className="font-bold text-[10px] sm:text-[11px] uppercase mt-1 leading-tight">
+                        {viewDraft.kop_surat || '-'}
+                      </p>
+                      
+                      <div className="flex justify-center sm:justify-end gap-6 sm:gap-10 mt-4">
+                        {/* Ketua */}
+                        <div className="text-center">
+                          <p className="text-[10px] sm:text-[11px]">Ketua,</p>
+                          <div className="h-14 sm:h-16 flex items-center justify-center">
+                            {viewDraft.ttd_ketua_url && (
+                              <img src={viewDraft.ttd_ketua_url} alt="TTD Ketua" className="h-12 sm:h-14 object-contain" />
+                            )}
+                          </div>
+                          <p className="font-bold text-[10px] sm:text-[12px] underline">{viewDraft.ketua || '-'}</p>
+                          {viewDraft.niat_ketua && (
+                            <p className="text-[8px] sm:text-[9px] mt-0.5">NIAT : {viewDraft.niat_ketua}</p>
+                          )}
+                        </div>
+
+                        {/* Sekretaris */}
+                        <div className="text-center">
+                          <p className="text-[10px] sm:text-[11px]">Sekretaris,</p>
+                          <div className="h-14 sm:h-16 flex items-center justify-center">
+                            {viewDraft.ttd_sekretaris_url && (
+                              <img src={viewDraft.ttd_sekretaris_url} alt="TTD Sekretaris" className="h-12 sm:h-14 object-contain" />
+                            )}
+                          </div>
+                          <p className="font-bold text-[10px] sm:text-[12px] underline">{viewDraft.sekretaris || '-'}</p>
+                          {viewDraft.niat_sekretaris && (
+                            <p className="text-[8px] sm:text-[9px] mt-0.5">NIAT : {viewDraft.niat_sekretaris}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => exportToPdf(viewDraft)}
+                  disabled={exporting}
+                >
+                  {exporting ? <Loader2 className="animate-spin mr-1.5" size={14} /> : <Download size={14} className="mr-1.5" />}
+                  Export PDF
+                </Button>
+                {!readOnly && (
+                  <>
+                    <Button variant="outline" className="flex-1" onClick={() => { setViewDraft(null); openEdit(viewDraft); }}>
+                      <Edit size={14} className="mr-1.5" /> Edit
+                    </Button>
+                    <Button variant="destructive" size="icon" onClick={() => { deleteMutation.mutate(viewDraft.id); setViewDraft(null); }}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </>
                 )}
-                <DetailRow label="Kop Surat" value={viewDraft.kop_surat} />
-                <DetailRow label="Alamat" value={viewDraft.alamat} />
-                <DetailRow label="Email" value={viewDraft.email} />
-                <DetailRow label="No. Surat" value={viewDraft.no_surat} />
-                <DetailRow label="Lampiran" value={viewDraft.lampiran} />
-                <DetailRow label="Perihal" value={viewDraft.perihal} />
-                <DetailRow label="Tanggal Surat" value={formatDate(viewDraft.tanggal_surat)} />
               </div>
-
-              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kepada</p>
-                <span className="text-sm text-foreground whitespace-pre-wrap">{viewDraft.kepada || '-'}</span>
-              </div>
-
-              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Isi Surat</p>
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{viewDraft.isi_surat || '-'}</p>
-                <div className="border-t border-border pt-3 space-y-2">
-                  <DetailRow label="Hari/Tanggal" value={viewDraft.isi_hari_tanggal} />
-                  <DetailRow label="Waktu" value={viewDraft.isi_waktu} />
-                  <DetailRow label="Tempat" value={viewDraft.isi_tempat} />
-                </div>
-              </div>
-
-              <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tertanda</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center space-y-2">
-                    <p className="text-[11px] font-medium text-muted-foreground">Ketua</p>
-                    {viewDraft.ttd_ketua_url && (
-                      <img src={viewDraft.ttd_ketua_url} alt="TTD Ketua" className="h-16 mx-auto object-contain" />
-                    )}
-                    <p className="text-sm font-semibold text-foreground">{viewDraft.ketua || '-'}</p>
-                    {viewDraft.niat_ketua && <p className="text-[10px] text-muted-foreground">NIAT : {viewDraft.niat_ketua}</p>}
-                  </div>
-                  <div className="text-center space-y-2">
-                    <p className="text-[11px] font-medium text-muted-foreground">Sekretaris</p>
-                    {viewDraft.ttd_sekretaris_url && (
-                      <img src={viewDraft.ttd_sekretaris_url} alt="TTD Sekretaris" className="h-16 mx-auto object-contain" />
-                    )}
-                    <p className="text-sm font-semibold text-foreground">{viewDraft.sekretaris || '-'}</p>
-                    {viewDraft.niat_sekretaris && <p className="text-[10px] text-muted-foreground">NIAT : {viewDraft.niat_sekretaris}</p>}
-                  </div>
-                </div>
-              </div>
-
-              {qrDataUrl && (
-                <div className="bg-muted/50 rounded-xl p-4 flex flex-col items-center gap-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <QrCode size={12} /> QR Code
-                  </p>
-                  <img src={qrDataUrl} alt="QR Code" className="w-28 h-28" />
-                </div>
-              )}
-
-              {!readOnly && (
-                <div className="flex gap-2 pt-1">
-                  <Button variant="outline" className="flex-1" onClick={() => { setViewDraft(null); openEdit(viewDraft); }}>
-                    <Edit size={14} className="mr-1.5" /> Edit
-                  </Button>
-                  <Button variant="destructive" className="flex-1" onClick={() => { deleteMutation.mutate(viewDraft.id); setViewDraft(null); }}>
-                    <Trash2 size={14} className="mr-1.5" /> Hapus
-                  </Button>
-                </div>
-              )}
             </div>
           )}
         </DialogContent>
@@ -408,7 +684,7 @@ export default function BuatSuratPage() {
                   <Textarea
                     value={form.kepada}
                     onChange={(e) => setForm({ ...form, kepada: e.target.value })}
-                    placeholder="Contoh: Ketua Pemuda Persis Cibatu&#10;Di&#10;Tempat"
+                    placeholder={"Contoh: Ketua Pemuda Persis Cibatu\nDi\nTempat"}
                     className="min-h-[80px]"
                   />
                 </div>
@@ -421,7 +697,7 @@ export default function BuatSuratPage() {
                       <Textarea
                         value={form.isi_surat}
                         onChange={(e) => setForm({ ...form, isi_surat: e.target.value })}
-                        placeholder="Tuliskan isi surat secara lengkap di sini...&#10;&#10;Contoh: Semoga rahmat dan maghfiroh Alloh Subhanahu Wata'ala senantiasa tercurah kepada kita. Aamiin.&#10;&#10;Selanjutnya, PC Persis Cibatu akan melaksanakan kegiatan..."
+                        placeholder={"Tuliskan isi surat secara lengkap di sini...\n\nContoh: Semoga rahmat dan maghfiroh Alloh Subhanahu Wata'ala senantiasa tercurah kepada kita. Aamiin.\n\nSelanjutnya, PC Persis Cibatu akan melaksanakan kegiatan..."}
                         className="min-h-[200px] leading-relaxed"
                       />
                     </div>
@@ -495,14 +771,5 @@ export default function BuatSuratPage() {
         </>
       )}
     </AppLayout>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-      <span className="text-sm text-foreground">{value || '-'}</span>
-    </div>
   );
 }
