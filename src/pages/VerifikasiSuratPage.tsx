@@ -1,25 +1,27 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ShieldCheck, ShieldX, FileText, ArrowLeft } from 'lucide-react';
+import { Loader2, ShieldCheck, ShieldX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function VerifikasiSuratPage() {
-  const { id } = useParams<{ id: string }>();
+  // Support both /verifikasi-surat/:id and /verifikasi-surat/:slug/:tanggal/:id
+  const { id, suratId } = useParams<{ id?: string; slug?: string; tanggal?: string; suratId?: string }>();
+  const actualId = suratId || id;
 
-  const { data: draft, isLoading, error } = useQuery({
-    queryKey: ['verify-surat', id],
+  const { data: draft, isLoading } = useQuery({
+    queryKey: ['verify-surat', actualId],
     queryFn: async () => {
-      if (!id) throw new Error('ID tidak ditemukan');
+      if (!actualId) throw new Error('ID tidak ditemukan');
       const { data, error } = await supabase
         .from('surat_draft')
         .select('*')
-        .eq('id', id)
+        .eq('id', actualId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!actualId,
   });
 
   function formatDate(dateStr: string) {
