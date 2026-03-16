@@ -55,6 +55,7 @@ const App = () => (
             <Route path="/view/data-pc/pj" element={<PJPage />} />
             <Route path="/view/data-pc/notulensi" element={<NotulensiPage />} />
             <Route path="/verifikasi-surat/:id" element={<VerifikasiSuratPage />} />
+            <Route path="/verifikasi-surat/:slug/:tanggal/:suratId" element={<VerifikasiSuratPage />} />
             <Route path="/maruf" element={<MarufPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

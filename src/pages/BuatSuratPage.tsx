@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Edit, FileText, Loader2, Eye, Upload, QrCode, Image, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Edit, FileText, Loader2, Eye, Upload, QrCode, Image, Download, Copy, Link2 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -69,6 +69,29 @@ const emptyForm: SuratDraftForm = {
   niat_ketua: '', niat_sekretaris: '',
 };
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+    .substring(0, 50);
+}
+
+function getVerificationUrl(draft: { id: string; perihal: string; tanggal_surat: string }) {
+  const base = window.location.origin;
+  const slug = slugify(draft.perihal || 'surat');
+  const tanggal = draft.tanggal_surat || 'tanpa-tanggal';
+  return `${base}/verifikasi-surat/${slug}/${tanggal}/${draft.id}`;
+}
+
+function getVerificationPath(draft: { id: string; perihal: string; tanggal_surat: string }) {
+  const slug = slugify(draft.perihal || 'surat');
+  const tanggal = draft.tanggal_surat || 'tanpa-tanggal';
+  return `/verifikasi-surat/${slug}/${tanggal}/${draft.id}`;
+}
+
 export default function BuatSuratPage() {
   const readOnly = useReadOnly();
   const queryClient = useQueryClient();
@@ -99,8 +122,9 @@ export default function BuatSuratPage() {
   });
 
   useEffect(() => {
-    if (viewDraft?.qr_data) {
-      QRCode.toDataURL(viewDraft.qr_data, { width: 120, margin: 1 })
+    if (viewDraft) {
+      const url = getVerificationUrl(viewDraft);
+      QRCode.toDataURL(url, { width: 120, margin: 1 })
         .then(setQrDataUrl)
         .catch(() => setQrDataUrl(''));
     } else {
@@ -127,7 +151,6 @@ export default function BuatSuratPage() {
           uploadFile(ttdKetuaFile, form.ttd_ketua_url, 'ttd-ketua'),
           uploadFile(ttdSekretarisFile, form.ttd_sekretaris_url, 'ttd-sekretaris'),
         ]);
-        // QR content will be set to verification URL after insert (needs ID)
         const row = {
           logo_url: logoUrl, kop_surat: form.kop_surat, alamat: form.alamat,
           email: form.email, no_surat: form.no_surat, lampiran: form.lampiran,
@@ -137,17 +160,16 @@ export default function BuatSuratPage() {
           isi_tempat: form.isi_tempat, ketua: form.ketua, sekretaris: form.sekretaris,
           ttd_ketua_url: ttdKetuaUrl, ttd_sekretaris_url: ttdSekretarisUrl,
           niat_ketua: form.niat_ketua, niat_sekretaris: form.niat_sekretaris,
-          qr_data: '', // placeholder, will be updated
+          qr_data: '',
         };
         if (editId) {
-          row.qr_data = getVerificationUrl(editId);
+          row.qr_data = getVerificationUrl({ id: editId, perihal: form.perihal, tanggal_surat: form.tanggal_surat });
           const { error } = await supabase.from('surat_draft').update(row).eq('id', editId);
           if (error) throw error;
         } else {
           const { data: inserted, error } = await supabase.from('surat_draft').insert(row).select('id').single();
           if (error) throw error;
-          // Update qr_data with the actual ID
-          const verifyUrl = getVerificationUrl(inserted.id);
+          const verifyUrl = getVerificationUrl({ id: inserted.id, perihal: form.perihal, tanggal_surat: form.tanggal_surat });
           await supabase.from('surat_draft').update({ qr_data: verifyUrl }).eq('id', inserted.id);
         }
       } finally {
@@ -235,6 +257,15 @@ export default function BuatSuratPage() {
     } catch { return dateStr; }
   }
 
+  function copyVerificationLink(draft: SuratDraft) {
+    const url = getVerificationUrl(draft);
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link verifikasi berhasil disalin');
+    }).catch(() => {
+      toast.error('Gagal menyalin link');
+    });
+  }
+
   // ---- PDF EXPORT ----
   async function loadImageAsDataUrl(url: string): Promise<string> {
     try {
@@ -251,105 +282,118 @@ export default function BuatSuratPage() {
     }
   }
 
-  function getVerificationUrl(draftId: string) {
-    const base = window.location.origin;
-    return `${base}/verifikasi-surat/${draftId}`;
-  }
-
   async function exportToPdf(draft: SuratDraft) {
     setExporting(true);
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
       const pageW = doc.internal.pageSize.getWidth(); // 210
-      const mL = 20;
-      const mR = 20;
-      const cW = pageW - mL - mR; // 170
-      let y = 18;
+      const pageH = doc.internal.pageSize.getHeight(); // 297
+      const mL = 25;
+      const mR = 25;
+      const cW = pageW - mL - mR; // 160
+      let y = 20;
 
       // ===== KOP SURAT =====
-      let logoEndX = mL;
+      const logoSize = 18;
+      let logoData = '';
       if (draft.logo_url) {
         try {
-          const logoData = await loadImageAsDataUrl(draft.logo_url);
-          if (logoData) {
-            doc.addImage(logoData, 'PNG', mL, y - 3, 20, 20);
-            logoEndX = mL + 23;
-          }
+          logoData = await loadImageAsDataUrl(draft.logo_url);
         } catch { /* skip */ }
       }
 
-      const kopCenterX = logoEndX + (pageW - mR - logoEndX) / 2;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      const kopText = (draft.kop_surat || '').toUpperCase();
-      const kopMaxW = pageW - mR - logoEndX - 2;
-      const kopSplit = doc.splitTextToSize(kopText, kopMaxW);
-      let kopY = y;
-      for (const line of kopSplit) {
-        doc.text(line, kopCenterX, kopY, { align: 'center' });
-        kopY += 5;
+      if (logoData) {
+        doc.addImage(logoData, 'PNG', mL, y - 2, logoSize, logoSize);
       }
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(`Sekretariat : ${draft.alamat || ''}`, kopCenterX, kopY + 1, { align: 'center' });
 
-      y = Math.max(kopY + 5, y + 20);
+      // Kop text centered in the full width
+      const kopCenterX = pageW / 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      const kopLines = (draft.kop_surat || 'KOP SURAT').toUpperCase().split('\n');
+      let kopY = y;
+      for (const line of kopLines) {
+        doc.text(line, kopCenterX, kopY, { align: 'center' });
+        kopY += 6;
+      }
+
+      // Alamat
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      if (draft.alamat) {
+        doc.text(`Sekretariat: ${draft.alamat}`, kopCenterX, kopY, { align: 'center' });
+        kopY += 4;
+      }
+      if (draft.email) {
+        doc.text(`Email: ${draft.email}`, kopCenterX, kopY, { align: 'center' });
+        kopY += 4;
+      }
+
+      y = Math.max(kopY + 2, y + logoSize + 2);
 
       // Double line separator
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(1);
+      doc.setDrawColor(0);
+      doc.setLineWidth(1.2);
       doc.line(mL, y, pageW - mR, y);
       doc.setLineWidth(0.3);
-      doc.line(mL, y + 1.5, pageW - mR, y + 1.5);
-      y += 8;
+      doc.line(mL, y + 2, pageW - mR, y + 2);
+      y += 10;
 
       // ===== NOMOR / LAMPIRAN / PERIHAL =====
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      const lblW = 25;
-      const colX = mL + lblW;
-      const vX = colX + 4;
+      const lblX = mL;
+      const colonX = mL + 28;
+      const valX = colonX + 5;
 
-      doc.text('Nomor', mL, y);
-      doc.text(':', colX, y);
-      doc.text(draft.no_surat || '-', vX, y);
+      doc.text('Nomor', lblX, y);
+      doc.text(':', colonX, y);
+      doc.text(draft.no_surat || '-', valX, y);
       y += 6;
-      doc.text('Lampiran', mL, y);
-      doc.text(':', colX, y);
-      doc.text(draft.lampiran || '-', vX, y);
+
+      doc.text('Lampiran', lblX, y);
+      doc.text(':', colonX, y);
+      doc.text(draft.lampiran || '-', valX, y);
       y += 6;
-      doc.text('Perihal', mL, y);
-      doc.text(':', colX, y);
+
+      doc.text('Perihal', lblX, y);
+      doc.text(':', colonX, y);
       doc.setFont('helvetica', 'bold');
-      const perihalLines = doc.splitTextToSize(draft.perihal || '-', cW - lblW - 6);
+      const perihalLines = doc.splitTextToSize(draft.perihal || '-', cW - 35);
       for (const line of perihalLines) {
-        doc.text(line, vX, y);
+        doc.text(line, valX, y);
         y += 5;
       }
       doc.setFont('helvetica', 'normal');
-      y += 4;
+      y += 6;
 
       // ===== KEPADA =====
       doc.setFontSize(11);
-      doc.text('Kepada Yth:', mL, y);
+      doc.text('Kepada Yth.', lblX, y);
       y += 6;
-      const kepadaLines = (draft.kepada || '').split('\n');
+      const kepadaLines = (draft.kepada || '-').split('\n');
       for (const line of kepadaLines) {
-        doc.text(line, mL, y);
+        doc.text(line, lblX, y);
         y += 5;
       }
       y += 6;
 
-      // ===== ISI SURAT =====
+      // ===== SALAM PEMBUKA =====
       doc.setFontSize(11);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Assalamu\'alaikum Warohmatullahi Wabarokaatuh', lblX, y);
+      doc.setFont('helvetica', 'normal');
+      y += 8;
+
+      // ===== ISI SURAT =====
       const bodyText = draft.isi_surat || '';
       const bodyParagraphs = bodyText.split('\n');
       for (const para of bodyParagraphs) {
-        if (para.trim() === '') { y += 3; continue; }
+        if (para.trim() === '') { y += 4; continue; }
         const wrapped = doc.splitTextToSize(para, cW);
         for (const line of wrapped) {
-          if (y > 270) { doc.addPage(); y = 20; }
-          doc.text(line, mL, y, { align: 'justify', maxWidth: cW });
+          if (y > pageH - 30) { doc.addPage(); y = 20; }
+          doc.text(line, lblX, y, { align: 'justify', maxWidth: cW });
           y += 5.5;
         }
       }
@@ -357,21 +401,21 @@ export default function BuatSuratPage() {
 
       // ===== TABEL KEGIATAN =====
       if (draft.isi_hari_tanggal || draft.isi_waktu || draft.isi_tempat) {
-        if (y > 240) { doc.addPage(); y = 20; }
+        if (y > pageH - 60) { doc.addPage(); y = 20; }
 
         const tableRows = [
-          ['Hari & tanggal', draft.isi_hari_tanggal || '-'],
+          ['Hari / Tanggal', draft.isi_hari_tanggal || '-'],
           ['Waktu', draft.isi_waktu || '-'],
           ['Tempat', draft.isi_tempat || '-'],
         ];
-        const c1W = 45;
+        const c1W = 40;
         const c2W = cW - c1W;
         const rH = 8;
 
         doc.setFontSize(10);
         for (const [label, value] of tableRows) {
-          if (y > 270) { doc.addPage(); y = 20; }
-          doc.setDrawColor(80, 80, 80);
+          if (y > pageH - 30) { doc.addPage(); y = 20; }
+          doc.setDrawColor(0);
           doc.setLineWidth(0.3);
           doc.rect(mL, y, c1W, rH);
           doc.rect(mL + c1W, y, c2W, rH);
@@ -387,52 +431,59 @@ export default function BuatSuratPage() {
       // ===== PENUTUP =====
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      const penutup = 'Demikian surat ini kami sampaikan, atas perhatiannya disampaikan banyak terima kasih.';
+      const penutup = 'Demikian surat ini kami sampaikan, atas perhatian dan kerjasamanya kami ucapkan terima kasih.';
       const penutupLines = doc.splitTextToSize(penutup, cW);
       for (const line of penutupLines) {
-        if (y > 270) { doc.addPage(); y = 20; }
+        if (y > pageH - 30) { doc.addPage(); y = 20; }
         doc.text(line, mL, y);
         y += 5.5;
       }
-      y += 8;
+      y += 3;
 
-      // ===== TANGGAL & KOP BAWAH (right half) =====
-      if (y > 220) { doc.addPage(); y = 20; }
+      // Salam penutup
+      doc.setFont('helvetica', 'italic');
+      doc.text('Wassalamu\'alaikum Warohmatullahi Wabarokaatuh', mL, y);
+      doc.setFont('helvetica', 'normal');
+      y += 10;
 
-      const rightX = pageW / 2 + 8;
-      const rightW = pageW - mR - rightX;
-      const rightCenterX = rightX + rightW / 2;
+      // ===== Check if signature block fits on current page =====
+      if (y > pageH - 80) { doc.addPage(); y = 20; }
+
+      // ===== TANGGAL & KOP BAWAH (right side) =====
+      const rightBlockX = pageW / 2 + 5;
+      const rightBlockW = pageW - mR - rightBlockX;
+      const rightCenterX = rightBlockX + rightBlockW / 2;
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text(`Cibatu, ${formatDate(draft.tanggal_surat)}`, rightCenterX, y, { align: 'center' });
-      y += 6;
+      y += 5;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       const kopBawah = (draft.kop_surat || '').toUpperCase();
-      const kopBLines = doc.splitTextToSize(kopBawah, rightW);
+      const kopBLines = doc.splitTextToSize(kopBawah, rightBlockW);
       for (const line of kopBLines) {
         doc.text(line, rightCenterX, y, { align: 'center' });
-        y += 4.5;
+        y += 4;
       }
       doc.setFont('helvetica', 'normal');
-      y += 3;
+      y += 2;
 
       // ===== TTD: Ketua (left col) & Sekretaris (right col) =====
       const ttdStartY = y;
-      const ttdColW = rightW / 2;
-      const ketuaCX = rightX + ttdColW / 2;
-      const sekCX = rightX + ttdColW + ttdColW / 2;
+      const ttdColW = rightBlockW / 2;
+      const ketuaCX = rightBlockX + ttdColW / 2;
+      const sekCX = rightBlockX + ttdColW + ttdColW / 2;
 
       doc.setFontSize(10);
       doc.text('Ketua,', ketuaCX, ttdStartY, { align: 'center' });
       doc.text('Sekretaris,', sekCX, ttdStartY, { align: 'center' });
 
       // Signature images
-      const sigY = ttdStartY + 4;
-      const sigW = 32;
-      const sigH = 16;
+      const sigY = ttdStartY + 3;
+      const sigW = 28;
+      const sigH = 14;
       if (draft.ttd_ketua_url) {
         try {
           const d = await loadImageAsDataUrl(draft.ttd_ketua_url);
@@ -461,18 +512,21 @@ export default function BuatSuratPage() {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      if (draft.niat_ketua) doc.text(`NIAT : ${draft.niat_ketua}`, ketuaCX, nameY + 5, { align: 'center' });
-      if (draft.niat_sekretaris) doc.text(`NIAT : ${draft.niat_sekretaris}`, sekCX, nameY + 5, { align: 'center' });
+      if (draft.niat_ketua) doc.text(`NIAT: ${draft.niat_ketua}`, ketuaCX, nameY + 5, { align: 'center' });
+      if (draft.niat_sekretaris) doc.text(`NIAT: ${draft.niat_sekretaris}`, sekCX, nameY + 5, { align: 'center' });
 
-      // ===== QR CODE (bottom-left) =====
-      const verifyUrl = getVerificationUrl(draft.id);
+      // ===== QR CODE (bottom-left, aligned with signature block) =====
+      const verifyUrl = getVerificationUrl(draft);
       const qrImg = await QRCode.toDataURL(verifyUrl, { width: 300, margin: 1 });
-      const qrSize = 25;
-      doc.addImage(qrImg, 'PNG', mL, ttdStartY - 4, qrSize, qrSize);
+      const qrSize = 22;
+      doc.addImage(qrImg, 'PNG', mL, ttdStartY - 2, qrSize, qrSize);
       doc.setFontSize(6);
-      doc.text('Scan untuk verifikasi', mL + qrSize / 2, ttdStartY - 4 + qrSize + 3, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Scan untuk verifikasi', mL + qrSize / 2, ttdStartY - 2 + qrSize + 3, { align: 'center' });
+      doc.setFontSize(5);
+      doc.text('keaslian surat', mL + qrSize / 2, ttdStartY - 2 + qrSize + 6, { align: 'center' });
 
-      doc.save(`Surat_${draft.perihal || 'Draft'}.pdf`);
+      doc.save(`Surat_${(draft.perihal || 'Draft').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
       toast.success('PDF berhasil diunduh');
     } catch (e: any) {
       toast.error('Gagal export PDF: ' + e.message);
@@ -506,6 +560,24 @@ export default function BuatSuratPage() {
                   <p className="font-semibold text-sm text-foreground leading-tight truncate">{draft.perihal || 'Tanpa Perihal'}</p>
                   <p className="text-xs text-muted-foreground mt-1">No: {draft.no_surat || '-'}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{formatDate(draft.tanggal_surat)}</p>
+                  {/* Verification link */}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Link2 size={12} className="text-primary shrink-0" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); copyVerificationLink(draft); }}
+                      className="text-[10px] text-primary hover:underline truncate text-left"
+                      title="Klik untuk menyalin link verifikasi"
+                    >
+                      {getVerificationPath(draft)}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); copyVerificationLink(draft); }}
+                      className="shrink-0 text-primary hover:text-primary/80"
+                      title="Salin link"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
                 </div>
                 <Badge variant="outline" className="text-[10px] shrink-0 border-primary/30 text-primary">
                   Draft
@@ -540,8 +612,13 @@ export default function BuatSuratPage() {
                         {viewDraft.kop_surat || 'KOP SURAT'}
                       </p>
                       <p className="text-[9px] sm:text-[10px] mt-1 opacity-70">
-                        Sekretariat : {viewDraft.alamat || '-'}
+                        Sekretariat: {viewDraft.alamat || '-'}
                       </p>
+                      {viewDraft.email && (
+                        <p className="text-[9px] sm:text-[10px] opacity-70">
+                          Email: {viewDraft.email}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -569,14 +646,19 @@ export default function BuatSuratPage() {
 
                   {/* Kepada */}
                   <div className="pt-4">
-                    <p>Kepada Yth:</p>
+                    <p>Kepada Yth.</p>
                     <div className="whitespace-pre-wrap pl-0 mt-1">
                       {viewDraft.kepada || '-'}
                     </div>
                   </div>
 
+                  {/* Salam pembuka */}
+                  <div className="pt-4">
+                    <p className="italic">Assalamu'alaikum Warohmatullahi Wabarokaatuh</p>
+                  </div>
+
                   {/* Isi Surat */}
-                  <div className="pt-4 whitespace-pre-wrap text-justify leading-[1.8]">
+                  <div className="pt-3 whitespace-pre-wrap text-justify leading-[1.8]">
                     {viewDraft.isi_surat || '-'}
                   </div>
 
@@ -586,7 +668,7 @@ export default function BuatSuratPage() {
                       <table className="w-full border-collapse text-[10px] sm:text-[12px]">
                         <tbody>
                           {[
-                            ['Hari & tanggal', viewDraft.isi_hari_tanggal],
+                            ['Hari / Tanggal', viewDraft.isi_hari_tanggal],
                             ['Waktu', viewDraft.isi_waktu],
                             ['Tempat', viewDraft.isi_tempat],
                           ].map(([label, value]) => (
@@ -602,21 +684,29 @@ export default function BuatSuratPage() {
 
                   {/* Penutup */}
                   <div className="pt-4">
-                    <p>Demikian surat ini kami sampaikan, atas perhatiannya disampaikan banyak terima kasih.</p>
+                    <p>Demikian surat ini kami sampaikan, atas perhatian dan kerjasamanya kami ucapkan terima kasih.</p>
+                  </div>
+
+                  {/* Salam penutup */}
+                  <div className="pt-3">
+                    <p className="italic">Wassalamu'alaikum Warohmatullahi Wabarokaatuh</p>
                   </div>
 
                   {/* Tanggal & TTD */}
                   <div className="pt-6 flex flex-col sm:flex-row gap-4">
                     {/* QR Code - left */}
-                    <div className="shrink-0 flex items-end">
+                    <div className="shrink-0 flex flex-col items-center">
                       {qrDataUrl && (
-                        <img src={qrDataUrl} alt="QR Code" className="w-20 h-20 sm:w-24 sm:h-24" />
+                        <>
+                          <img src={qrDataUrl} alt="QR Code" className="w-20 h-20 sm:w-24 sm:h-24" />
+                          <p className="text-[7px] sm:text-[8px] text-center mt-1 opacity-60">Scan untuk verifikasi</p>
+                        </>
                       )}
                     </div>
 
                     {/* TTD Block - right */}
                     <div className="flex-1 text-center sm:text-right">
-                      <p>{formatDate(viewDraft.tanggal_surat)}</p>
+                      <p>Cibatu, {formatDate(viewDraft.tanggal_surat)}</p>
                       <p className="font-bold text-[10px] sm:text-[11px] uppercase mt-1 leading-tight">
                         {viewDraft.kop_surat || '-'}
                       </p>
@@ -632,7 +722,7 @@ export default function BuatSuratPage() {
                           </div>
                           <p className="font-bold text-[10px] sm:text-[12px] underline">{viewDraft.ketua || '-'}</p>
                           {viewDraft.niat_ketua && (
-                            <p className="text-[8px] sm:text-[9px] mt-0.5">NIAT : {viewDraft.niat_ketua}</p>
+                            <p className="text-[8px] sm:text-[9px] mt-0.5">NIAT: {viewDraft.niat_ketua}</p>
                           )}
                         </div>
 
@@ -646,7 +736,7 @@ export default function BuatSuratPage() {
                           </div>
                           <p className="font-bold text-[10px] sm:text-[12px] underline">{viewDraft.sekretaris || '-'}</p>
                           {viewDraft.niat_sekretaris && (
-                            <p className="text-[8px] sm:text-[9px] mt-0.5">NIAT : {viewDraft.niat_sekretaris}</p>
+                            <p className="text-[8px] sm:text-[9px] mt-0.5">NIAT: {viewDraft.niat_sekretaris}</p>
                           )}
                         </div>
                       </div>
@@ -655,8 +745,29 @@ export default function BuatSuratPage() {
                 </div>
               </div>
 
+              {/* Verification Link */}
+              <div className="mt-3 bg-muted/50 rounded-xl p-3">
+                <div className="flex items-center gap-2">
+                  <Link2 size={14} className="text-primary shrink-0" />
+                  <p className="text-xs font-medium text-foreground">Link Verifikasi Surat</p>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <p className="text-[10px] text-primary truncate flex-1 font-mono bg-background rounded-lg px-2 py-1.5 border border-border">
+                    {getVerificationPath(viewDraft)}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 text-xs h-8"
+                    onClick={() => copyVerificationLink(viewDraft)}
+                  >
+                    <Copy size={12} className="mr-1" /> Salin
+                  </Button>
+                </div>
+              </div>
+
               {/* Action Buttons */}
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-2 mt-3">
                 <Button
                   variant="outline"
                   className="flex-1"
